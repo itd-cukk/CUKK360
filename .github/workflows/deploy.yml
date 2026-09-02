@@ -1,0 +1,53 @@
+name: CI / Deploy (clasp)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Unit test (logika murni)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci || npm install
+      - run: npm test
+
+  deploy:
+    name: Deploy ke Apps Script
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g @google/clasp@2.4.2
+
+      # Kredensial clasp disimpan sebagai GitHub Secret (JANGAN commit ke repo).
+      # Isi secret CLASP_CREDENTIALS = seluruh isi berkas ~/.clasprc.json hasil `clasp login`.
+      - name: Tulis kredensial clasp
+        run: |
+          echo '${{ secrets.CLASP_CREDENTIALS }}' > "$HOME/.clasprc.json"
+          test -s "$HOME/.clasprc.json" || (echo "Secret CLASP_CREDENTIALS kosong" && exit 1)
+
+      # .clasp.json di repo memakai placeholder; scriptId nyata dari Secret.
+      - name: Set scriptId
+        run: |
+          echo '{ "scriptId": "${{ secrets.CLASP_SCRIPT_ID }}", "rootDir": "src" }' > .clasp.json
+
+      - name: Push (staging) — branch develop
+        if: github.ref == 'refs/heads/develop'
+        run: clasp push --force
+
+      - name: Push + Deploy (produksi) — branch main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          clasp push --force
+          clasp deploy --description "CI deploy ${{ github.sha }}"

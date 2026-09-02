@@ -1,0 +1,21 @@
+# Kredensial clasp — JANGAN PERNAH di-commit
+.clasprc.json
+~/.clasprc.json
+clasprc.json
+
+# Node
+node_modules/
+npm-debug.log*
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Berkas roster mentah / data pribadi aktivis (impor manual, jangan masuk repo)
+Data*Aktivis*.xlsx
+*.local.xlsx

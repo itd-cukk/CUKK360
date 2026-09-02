@@ -1,0 +1,7 @@
+# Path dicocokkan relatif terhadap rootDir (src/). Hanya manifest + .gs + .html
+# yang diunggah ke Apps Script.
+**/**
+
+!appsscript.json
+!**/*.gs
+!**/*.html

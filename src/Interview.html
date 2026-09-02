@@ -1,0 +1,37 @@
+<!-- Interview.html — Daftar sesi + form Wawancara Appraisal Tahunan. Fragment. -->
+<section id="view-interview" class="view hidden">
+  <div class="card">
+    <div class="row"><button class="secondary" data-nav="home">&larr; Beranda</button>
+      <h2 class="mb0" style="flex:1">Pertanyaan Wawancara</h2></div>
+    <p class="sub" id="iv-periode">—</p>
+
+    <h3>Sebagai Atasan (mewawancarai bawahan)</h3>
+    <div id="iv-list-atasan"><p class="muted">—</p></div>
+
+    <h3 class="mt16">Sebagai Bawahan (diwawancarai atasan)</h3>
+    <div id="iv-list-bawahan"><p class="muted">—</p></div>
+  </div>
+</section>
+
+<section id="view-iv-form" class="view hidden">
+  <div class="card">
+    <div class="row">
+      <button class="secondary" data-nav="interview">&larr; Daftar Sesi</button>
+      <h2 class="mb0" style="flex:1">Sesi Wawancara</h2>
+    </div>
+    <div id="ivf-head" class="card" style="background:var(--chip);margin-top:12px"></div>
+
+    <div id="ivf-body"></div>
+
+    <div id="ivf-rtl-wrap" class="hidden">
+      <h3 class="mt16">Rencana Tindak Lanjut</h3>
+      <div id="ivf-rtl"></div>
+      <button class="secondary mt8" onclick="IV.addRtlRow()">+ Baris</button>
+    </div>
+
+    <div class="sticky-actions">
+      <button class="secondary" id="ivf-save" onclick="IV.save()">Simpan</button>
+      <button class="green" id="ivf-confirm" onclick="IV.confirm()">Konfirmasi Sesi</button>
+    </div>
+  </div>
+</section>

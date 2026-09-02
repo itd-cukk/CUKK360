@@ -1,0 +1,49 @@
+<!-- Report.html — Dashboard laporan: individu, agregat, kualitas data, ekspor. Fragment. -->
+<section id="view-report" class="view hidden">
+  <div class="card">
+    <div class="row"><button class="secondary" data-nav="home">&larr; Beranda</button>
+      <h2 class="mb0" style="flex:1">Laporan</h2></div>
+    <div class="row mt8">
+      <button class="secondary" data-rtab="individu">Laporan Individu</button>
+      <button class="secondary" data-rtab="agregat">Laporan Agregat</button>
+      <button class="secondary" data-rtab="kualitas">Kualitas Data</button>
+    </div>
+  </div>
+
+  <!-- Individu -->
+  <div class="card rtab" id="rtab-individu">
+    <h2>Laporan Individu</h2>
+    <p class="sub">Skor 8 dimensi INVICTUS, perbandingan Self/Peer/Atasan/Bawahan, dan ringkasan wawancara.</p>
+    <div class="row">
+      <input type="text" id="rep-nia" placeholder="NIA (kosong = diri sendiri)">
+      <button class="blue" onclick="Report.loadIndividu()">Tampilkan</button>
+      <button class="secondary" onclick="Report.downloadPdf()">Unduh PDF</button>
+    </div>
+    <div id="rep-ind-body" class="mt16"></div>
+    <canvas id="rep-radar" height="260" class="mt16"></canvas>
+    <canvas id="rep-bar" height="220" class="mt16"></canvas>
+  </div>
+
+  <!-- Agregat -->
+  <div class="card rtab hidden" id="rtab-agregat">
+    <h2>Laporan Agregat &amp; Peringkat</h2>
+    <div class="row">
+      <select id="rep-groupby">
+        <option value="bo">Per Branch Office (BO)</option>
+        <option value="area">Per Area</option>
+        <option value="unit">Per Unit Bisnis</option>
+      </select>
+      <button class="blue" onclick="Report.loadAgregat()">Tampilkan</button>
+      <button class="secondary" onclick="Report.exportExcel()">Ekspor Excel</button>
+    </div>
+    <div id="rep-agg-body" class="mt16"></div>
+  </div>
+
+  <!-- Kualitas Data -->
+  <div class="card rtab hidden" id="rtab-kualitas">
+    <h2>Laporan Kualitas Data</h2>
+    <p class="sub">Kegagalan kalibrasi, pola straight-lining, NIA duplikat, jabatan belum terpetakan.</p>
+    <button class="blue" onclick="Report.loadKualitas()">Muat</button>
+    <div id="rep-qual-body" class="mt16"></div>
+  </div>
+</section>
