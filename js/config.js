@@ -6,7 +6,7 @@
  * Bukan rahasia — endpoint web app publik; aksi apa pun tetap butuh sessionToken valid.
  * Ganti nilai ini kalau URL deployment Apps Script berubah, lalu git push.
  */
-var DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyNtlLU1G7N6vVTNTuPOEqh3CB069LSPr4ZzSvcF0WzNyL0IhNOlB9TTIbE-yty71A/exec';
+var DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK8tLFXX4abKABGaHSRT60P5j3TNvQF0EGTDTGZyfD0ktV3p6lwbJEdtZlnaGNJzTn/exec';
 
 /**
  * URL Web App Apps Script (/exec). Prioritas:
