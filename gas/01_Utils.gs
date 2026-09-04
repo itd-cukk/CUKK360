@@ -86,13 +86,19 @@ function scriptProps_() {
 }
 
 /**
+ * Spreadsheet database. Mendukung 2 mode:
+ *  - Container-bound (seperti laporan-hn): kode ada DI DALAM Spreadsheet
+ *    (Extensions → Apps Script) → pakai getActiveSpreadsheet().
+ *  - Standalone: pakai SPREADSHEET_ID di Script Properties (dibuat oleh setup()).
  * @return {GoogleAppsScript.Spreadsheet.Spreadsheet}
- * @throws bila SPREADSHEET_ID belum di-set di Script Properties.
  */
 function getSpreadsheet_() {
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) return active;
   var id = scriptProps_().getProperty('SPREADSHEET_ID');
   if (!id) {
-    throw new Error('SPREADSHEET_ID belum di-set di Script Properties. Jalankan setup() atau isi manual.');
+    throw new Error('Tidak ada Spreadsheet aktif dan SPREADSHEET_ID belum di-set. ' +
+      'Jalankan setup() (mode standalone) atau buat script dari dalam Spreadsheet (mode bound).');
   }
   return SpreadsheetApp.openById(id);
 }

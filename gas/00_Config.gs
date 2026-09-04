@@ -40,11 +40,19 @@ function jr(obj, callback) {
  */
 function setup() {
   var props = scriptProps_();
-  var id = props.getProperty('SPREADSHEET_ID');
-  if (!id) {
-    var ss = SpreadsheetApp.create(APP_NAME + ' — Database');
-    id = ss.getId();
-    props.setProperty('SPREADSHEET_ID', id);
+
+  // Mode bound (kode di dalam Spreadsheet) → pakai Spreadsheet aktif, tak perlu buat baru.
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  var id;
+  if (active) {
+    id = active.getId();
+  } else {
+    id = props.getProperty('SPREADSHEET_ID');
+    if (!id) {
+      var ss = SpreadsheetApp.create(APP_NAME + ' — Database');
+      id = ss.getId();
+    }
+    props.setProperty('SPREADSHEET_ID', id); // simpan untuk mode standalone
   }
   if (!props.getProperty('OTP_PEPPER')) props.setProperty('OTP_PEPPER', Utilities.getUuid());
 
