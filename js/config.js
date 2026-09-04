@@ -1,16 +1,23 @@
 /* config.js — konfigurasi klien & state global. */
 
 /**
+ * URL default Web App Apps Script (/exec).
+ * Dipakai sebagai fallback bila env SCRIPT_URL Cloudflare / middleware belum aktif.
+ * Bukan rahasia — endpoint web app publik; aksi apa pun tetap butuh sessionToken valid.
+ * Ganti nilai ini kalau URL deployment Apps Script berubah, lalu git push.
+ */
+var DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyNtlLU1G7N6vVTNTuPOEqh3CB069LSPr4ZzSvcF0WzNyL0IhNOlB9TTIbE-yty71A/exec';
+
+/**
  * URL Web App Apps Script (/exec). Prioritas:
- *  1. localStorage 'kk360_script_url'  (override manual saat dev/test)
+ *  1. localStorage 'kk360_script_url'  (override manual saat dev/test — setUrl())
  *  2. window.__SCRIPT_URL__            (disuntik functions/_middleware.js dari env SCRIPT_URL)
+ *  3. DEFAULT_SCRIPT_URL               (fallback hardcode di file ini)
  */
 function getUrl() {
-  try {
-    return localStorage.getItem('kk360_script_url') || window.__SCRIPT_URL__ || '';
-  } catch (e) {
-    return window.__SCRIPT_URL__ || '';
-  }
+  var ls = '';
+  try { ls = localStorage.getItem('kk360_script_url') || ''; } catch (e) {}
+  return ls || window.__SCRIPT_URL__ || DEFAULT_SCRIPT_URL || '';
 }
 
 /** Set URL backend manual (dipakai saat Cloudflare middleware belum aktif). */
