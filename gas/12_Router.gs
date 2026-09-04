@@ -35,6 +35,11 @@ function _handleRequest_(e, method) {
     }
   }
 
+  // Bare /exec (tanpa action) → balas info sehat, bukan error (untuk cek manual).
+  if (!action) {
+    return jr(ok_({ app: APP_NAME, status: 'ok', time: nowIso_(), hint: 'Tambahkan ?action=ping untuk uji.' }), callback);
+  }
+
   var fn = ACTIONS[action];
   if (!fn) return jr(err_('Aksi tidak dikenal: "' + action + '"', 'UNKNOWN_ACTION'), callback);
   if (fn.__method && fn.__method !== method) {
