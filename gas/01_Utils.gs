@@ -326,3 +326,32 @@ function ok_(data) {
 function err_(message, code) {
   return { ok: false, error: String(message), code: code || 'ERR' };
 }
+
+/* ============================================================================
+ * AUDIT LOG (FR-37)
+ * Helper fondasi — dipakai lintas modul (Auth, MasterData, Period, Assessment,
+ * Interview, Notification, Triggers). Sengaja di sini, bukan di 02_Auth.gs,
+ * agar modul lain tidak bergantung pada urutan/keberadaan file Auth.
+ * ========================================================================== */
+
+/**
+ * Tulis satu baris ke sheet `audit_log`. Tidak pernah melempar error
+ * (kegagalan audit tidak boleh menggagalkan aksi utama).
+ * @param {string} nia  NIA pelaku, atau 'SYSTEM'
+ * @param {string} aksi kode aksi singkat
+ * @param {Object=} detail objek bebas; di-JSON-kan ke kolom detail
+ */
+function _audit_(nia, aksi, detail) {
+  try {
+    appendObject_('audit_log', {
+      id: shortId_('aud'),
+      nia: nia,
+      aksi: aksi,
+      waktu: nowIso_(),
+      detail: JSON.stringify(detail || {}),
+      perangkat_ip: (detail && detail.device) || ''
+    });
+  } catch (e) {
+    Logger.log('audit gagal: ' + e);
+  }
+}

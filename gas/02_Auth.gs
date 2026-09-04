@@ -325,15 +325,5 @@ function _maskEmail_(email) {
   return masked + '@' + parts[1];
 }
 
-function _audit_(nia, aksi, detail) {
-  try {
-    appendObject_('audit_log', {
-      id: shortId_('aud'),
-      nia: nia,
-      aksi: aksi,
-      waktu: nowIso_(),
-      detail: JSON.stringify(detail || {}),
-      perangkat_ip: (detail && detail.device) || ''
-    });
-  } catch (e) { Logger.log('audit gagal: ' + e); }
-}
+// _audit_() dipindah ke 01_Utils.gs (helper fondasi) supaya modul lain
+// (Period/Interview/Notification/Triggers) tidak bergantung pada file Auth.
