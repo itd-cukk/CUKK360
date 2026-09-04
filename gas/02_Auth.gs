@@ -125,6 +125,35 @@ function authMe(sessionToken) {
   return ok_(s);
 }
 
+/**
+ * Aktivasi / reset PIN untuk NIA Admin TANPA OTP — jalur bootstrap.
+ * Hanya berlaku bila NIA terdaftar di Script Property ADMIN_NIAS (dikelola ITD
+ * di luar aplikasi). Dipakai saat instalasi pertama atau bila pengiriman email
+ * OTP sedang bermasalah. Aktivis biasa TETAP wajib OTP.
+ * @param {{nia:string, newPin:string, deviceId:string}} p
+ */
+function authAdminActivate(p) {
+  try {
+    p = p || {};
+    var nia = normalizeNia_(p.nia);
+    if (!isAdminNia_(nia)) {
+      return err_('NIA ini tidak terdaftar sebagai Admin (ADMIN_NIAS). Gunakan aktivasi OTP biasa.', 'NOT_ADMIN');
+    }
+    var profil = getProfil_(nia);
+    if (!profil) return err_('NIA tidak ditemukan pada Master Data Aktivis.', 'NIA_NOT_FOUND');
+    if (!profil.status_aktif) return err_('NIA berstatus nonaktif.', 'NIA_INACTIVE');
+    if (!/^\d{6}$/.test(String(p.newPin || ''))) return err_('PIN harus 6 digit angka.', 'PIN_FORMAT');
+
+    scriptProps_().setProperty('pin_' + nia, sha256Hex_(nia + '|' + p.newPin + '|' + _pinPepper_()));
+    _rememberDevice_(nia, p.deviceId);
+    var token = _createSession_(profil);
+    _audit_(nia, 'admin_activate_no_otp', {});
+    return ok_({ status: 'OK', session: _sessionPublic_(token, profil) });
+  } catch (e) {
+    return err_(e.message || String(e), 'EXCEPTION');
+  }
+}
+
 /* ============================================================================
  * INTERNAL — sesi
  * ========================================================================== */

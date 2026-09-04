@@ -80,6 +80,9 @@ var ACTIONS = {
   }),
   'auth.logout': _post_(function (p) { return authLogout(p.sessionToken); }),
   'auth.me': _get_(function (p) { return authMe(p.sessionToken); }),
+  'auth.adminActivate': _post_(function (p) {
+    return authAdminActivate({ nia: p.nia, newPin: p.newPin, deviceId: p.deviceId });
+  }),
 
   /* ---- Dashboard / Beranda ---- */
   'dashboard': _get_(function (p) { return reportDashboard(p.sessionToken); }),

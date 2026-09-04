@@ -7,6 +7,7 @@ var Auth = {
     $('btn-login').addEventListener('click', function (e) { Auth.login(e.currentTarget); });
     $('lnk-activate').addEventListener('click', function (e) { e.preventDefault(); Auth.startActivation(); });
     $('btn-req-activation').addEventListener('click', function (e) { Auth.requestActivation(e.currentTarget); });
+    $('btn-admin-nootp').addEventListener('click', function (e) { Auth.adminActivate(e.currentTarget); });
     $('btn-verify-otp').addEventListener('click', function (e) { Auth.verifyOtp(e.currentTarget); });
     $('lnk-resend-otp').addEventListener('click', function (e) { e.preventDefault(); Auth.resendOtp(); });
     Array.prototype.forEach.call(document.querySelectorAll('.lnk-back-login'), function (a) {
@@ -76,6 +77,21 @@ var Auth = {
         ' menit). Buat PIN baru di bawah.';
       $('otp-newpin-wrap').classList.remove('hidden');
       Auth._show('auth-otp');
+    }).catch(function (e) { busy(btn, false); toast(e.message, true); });
+  },
+
+  adminActivate: function (btn) {
+    var nia = $('act-nia').value.replace(/\s+/g, '').toUpperCase();
+    if (/^\d+$/.test(nia) && nia.length > 0 && nia.length < 12) nia = ('000000000000' + nia).slice(-12);
+    if (!nia) return toast('Isi NIA', true);
+    var newPin = window.prompt('Aktivasi Admin tanpa OTP.\nBuat PIN baru untuk NIA ' + nia + ' (6 digit angka):');
+    if (newPin == null) return;
+    newPin = String(newPin).trim();
+    if (!/^\d{6}$/.test(newPin)) return toast('PIN harus 6 digit angka', true);
+    busy(btn, true);
+    apiPost('auth.adminActivate', { nia: nia, newPin: newPin, deviceId: DEVICE_ID }).then(function (d) {
+      busy(btn, false);
+      if (d.status === 'OK') { toast('Aktivasi admin berhasil'); Auth._enter(d.session); }
     }).catch(function (e) { busy(btn, false); toast(e.message, true); });
   },
 
