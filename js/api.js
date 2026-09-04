@@ -1,14 +1,18 @@
-/* api.js — komunikasi ke backend Apps Script (JSON API).
+/* api.js — komunikasi ke backend lewat proxy same-origin `/api`.
  *
- * apiGet(action, params)   → GET  ?action=...&k=v ; fallback JSONP bila CORS gagal.
- * apiPost(action, payload) → POST body JSON (Content-Type text/plain, tanpa preflight).
+ * Frontend TIDAK memanggil script.google.com langsung (kena CORS). Semua request
+ * lewat Cloudflare Pages Function `functions/api.js` yang meneruskan ke Apps Script.
+ *
+ *   apiGet(action, params)   → GET  /api?action=...&k=v
+ *   apiPost(action, payload) → POST /api?action=...  (body JSON)
  *
  * Semua handler backend mengembalikan {ok:boolean, data|error}. Fungsi di sini
  * me-resolve `data` bila ok, atau reject Error(pesan) bila tidak.
  */
 
+var API_BASE = '/api';
+
 function _parseGasJson(text) {
-  // Apps Script kadang membungkus dengan HTML saat redirect; ambil objek JSON pertama.
   try { return JSON.parse(text); } catch (e) {}
   var m = text && text.match(/\{[\s\S]*\}/);
   if (m) { try { return JSON.parse(m[0]); } catch (e2) {} }
@@ -29,54 +33,35 @@ function _qs(params) {
 }
 
 function apiGet(action, params, timeoutMs) {
-  var base = getUrl();
-  if (!base) return Promise.reject(new Error('URL backend belum diset (SCRIPT_URL).'));
-  var url = base + '?action=' + encodeURIComponent(action);
+  var url = API_BASE + '?action=' + encodeURIComponent(action);
   var qs = _qs(params);
   if (qs) url += '&' + qs;
-
-  return fetch(url, { method: 'GET' })
+  return _fetchWithTimeout(url, { method: 'GET' }, timeoutMs || 30000)
     .then(function (r) { return r.text(); })
-    .then(function (t) { return _unwrap(_parseGasJson(t)); })
-    .catch(function () {
-      // Fallback JSONP (GET only) — untuk jaringan yang memblokir CORS fetch.
-      return _jsonp(url, timeoutMs).then(_unwrap);
-    });
+    .then(function (t) { return _unwrap(_parseGasJson(t)); });
 }
 
 function apiPost(action, payload, timeoutMs) {
-  var base = getUrl();
-  if (!base) return Promise.reject(new Error('URL backend belum diset (SCRIPT_URL).'));
-  var url = base + '?action=' + encodeURIComponent(action);
+  var url = API_BASE + '?action=' + encodeURIComponent(action);
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
-
-  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  var t = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs || 30000) : null;
-
-  return fetch(url, {
+  return _fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: body,
-    signal: ctrl ? ctrl.signal : undefined
-  })
+    body: body
+  }, timeoutMs || 40000)
     .then(function (r) { return r.text(); })
-    .then(function (txt) { if (t) clearTimeout(t); return _unwrap(_parseGasJson(txt)); })
-    .catch(function (e) { if (t) clearTimeout(t); throw (e && e.name === 'AbortError' ? new Error('Waktu tunggu habis.') : e); });
+    .then(function (t) { return _unwrap(_parseGasJson(t)); });
 }
 
-function _jsonp(url, timeoutMs) {
-  return new Promise(function (resolve, reject) {
-    var cb = 'kk360cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
-    var s = document.createElement('script');
-    var done = false;
-    window[cb] = function (data) { done = true; cleanup(); resolve(data); };
-    function cleanup() {
-      try { delete window[cb]; } catch (e) { window[cb] = undefined; }
-      if (s.parentNode) s.parentNode.removeChild(s);
+function _fetchWithTimeout(url, init, ms) {
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var t = ctrl ? setTimeout(function () { ctrl.abort(); }, ms) : null;
+  if (ctrl) init.signal = ctrl.signal;
+  return fetch(url, init).then(
+    function (r) { if (t) clearTimeout(t); return r; },
+    function (e) {
+      if (t) clearTimeout(t);
+      throw (e && e.name === 'AbortError') ? new Error('Waktu tunggu habis.') : e;
     }
-    s.onerror = function () { if (!done) { cleanup(); reject(new Error('Gagal menghubungi backend.')); } };
-    s.src = url + (url.indexOf('?') === -1 ? '?' : '&') + 'callback=' + cb;
-    document.head.appendChild(s);
-    setTimeout(function () { if (!done) { cleanup(); reject(new Error('Waktu tunggu habis.')); } }, timeoutMs || 20000);
-  });
+  );
 }

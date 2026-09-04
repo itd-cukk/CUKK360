@@ -29,9 +29,10 @@ document.addEventListener('click', function (e) {
     $('nia-status').textContent = inNia.value.trim().length >= 8 ? 'Tekan Masuk untuk melanjutkan.' : '';
   });
 
-  if (!getUrl()) {
-    toast('URL backend (SCRIPT_URL) belum diset. Buka console: setUrl("https://script.google.com/.../exec")', true);
-  }
+  // Cek koneksi backend lewat proxy /api. Bila gagal, beri tahu (tidak memblokir).
+  apiGet('ping').catch(function (e) {
+    toast('Tidak bisa menghubungi backend: ' + (e && e.message ? e.message : e), true);
+  });
 
   Auth.tryResume();
 })();
