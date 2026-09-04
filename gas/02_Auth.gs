@@ -42,12 +42,14 @@ function authLogin(p) {
       return err_('PIN salah.', 'PIN_WRONG');
     }
 
+    // Admin (NIA di ADMIN_NIAS) tidak wajib OTP perangkat — PIN benar = langsung masuk.
     var known = _isKnownDevice_(nia, p.deviceId);
-    if (!known) {
+    if (!known && !isAdminNia_(nia)) {
       var sent = _issueOtp_(nia, profil.email);
       _audit_(nia, 'login_minta_otp', { emailMask: _maskEmail_(profil.email) });
       return ok_({ status: 'NEED_OTP', nia: nia, emailMask: _maskEmail_(profil.email), otpExpiresInMin: OTP_TTL_MINUTES, debugSent: sent });
     }
+    if (!known && isAdminNia_(nia)) _rememberDevice_(nia, p.deviceId);
 
     var token = _createSession_(profil);
     _audit_(nia, 'login_sukses', { device: 'known' });

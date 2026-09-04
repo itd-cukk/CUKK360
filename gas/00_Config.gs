@@ -101,6 +101,25 @@ function firstImportDryRun() {
 }
 
 /**
+ * Set PIN untuk SEMUA NIA di ADMIN_NIAS langsung dari editor (tanpa web/OTP).
+ * Jalur bootstrap saat email OTP bermasalah.
+ * PIN default '123456' — atau isi Script Property ADMIN_PIN_BOOTSTRAP.
+ * WAJIB ganti PIN lewat aplikasi setelah login pertama.
+ */
+function bootstrapAdminPin() {
+  var pin = String(scriptProps_().getProperty('ADMIN_PIN_BOOTSTRAP') || '123456').trim();
+  if (!/^\d{6}$/.test(pin)) throw new Error('ADMIN_PIN_BOOTSTRAP harus 6 digit angka.');
+  var list = getAdminNias_();
+  if (!list.length) throw new Error('ADMIN_NIAS kosong. Isi dulu di Script Properties.');
+  var pepper = scriptProps_().getProperty('OTP_PEPPER') || 'kk360-default-pepper';
+  list.forEach(function (nia) {
+    scriptProps_().setProperty('pin_' + nia, sha256Hex_(nia + '|' + pin + '|' + pepper));
+  });
+  Logger.log('PIN admin di-set ke "' + pin + '" untuk: ' + list.join(', ') + ' — GANTI setelah login.');
+  return ok_({ admin: list, pinSementara: pin });
+}
+
+/**
  * Refresh cache Master Data (aktivis + referensi level jabatan) dari sheet.
  * Alias tanpa underscore agar muncul di dropdown Run editor.
  * Jalankan setelah mengedit sheet `aktivis` / `referensi_level_jabatan` manual.
