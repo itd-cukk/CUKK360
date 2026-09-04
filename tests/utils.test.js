@@ -1,6 +1,6 @@
 const { loadGs } = require('./helpers/loadGs');
 
-const ctx = loadGs(['Utils.gs']);
+const ctx = loadGs(['01_Utils.gs']);
 
 describe('normalizeNia_ / isValidNiaFormat_', () => {
   test('NIA angka murni valid & dinormalisasi', () => {

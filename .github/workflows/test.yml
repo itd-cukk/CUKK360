@@ -1,0 +1,25 @@
+name: Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Unit test (logika murni GAS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci || npm install
+      - run: npm test
+
+# Deploy TIDAK di sini:
+#  - Frontend (index.html, css/, js/) di-deploy otomatis oleh Cloudflare Pages
+#    setiap push ke branch produksi (integrasi Git bawaan Cloudflare).
+#  - Backend (gas/*.gs) di-update manual: tempel isi file ke editor Apps Script,
+#    atau `clasp push` (opsional, lihat .clasp.json). Lalu Deploy > New version.

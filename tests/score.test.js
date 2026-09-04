@@ -2,7 +2,7 @@ const { loadGs } = require('./helpers/loadGs');
 
 // Report.gs & QuestionBank.gs memuat banyak fungsi yang butuh Sheets, tapi
 // predikat_ dan kalkulasi rata-rata bersifat murni.
-const ctx = loadGs(['Utils.gs', 'Report.gs']);
+const ctx = loadGs(['01_Utils.gs', '11_Report.gs']);
 
 describe('predikat_ (ambang skor 1..5)', () => {
   test.each([

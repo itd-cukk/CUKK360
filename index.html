@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>KK-360 Performance</title>
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  <!-- window.__SCRIPT_URL__ disuntik oleh functions/_middleware.js dari env SCRIPT_URL (Cloudflare Pages). -->
+</head>
+<body>
+
+<!-- ============================ LOGIN ============================ -->
+<div id="screen-auth" class="wrap">
+  <div class="card">
+    <div class="center">
+      <div style="font-size:34px">🧭</div>
+      <h2 style="margin:6px 0 0">KK-360 Performance</h2>
+      <p class="sub">Penilaian Kinerja 360° — Jaringan Gerakan Keling Kumang</p>
+    </div>
+
+    <div id="auth-login">
+      <label>Nomor Induk Aktivis (NIA)</label>
+      <input type="text" id="in-nia" autocomplete="username" placeholder="mis. 010921100266 atau 01SK11700901">
+      <p class="muted" id="nia-status" style="font-size:12px;margin:4px 0 0"></p>
+      <label>PIN (6 digit)</label>
+      <input type="password" id="in-pin" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="••••••">
+      <button class="mt16" style="width:100%" id="btn-login">Masuk</button>
+      <p class="center mt8"><a href="#" id="lnk-activate">Aktivasi akun / Lupa PIN</a></p>
+    </div>
+
+    <div id="auth-activate" class="hidden">
+      <p class="sub">Kami akan mengirim kode OTP ke email terdaftar milik pemilik NIA.</p>
+      <label>NIA</label>
+      <input type="text" id="act-nia" placeholder="NIA">
+      <button class="mt16" style="width:100%" id="btn-req-activation">Kirim OTP</button>
+      <p class="center mt8"><a href="#" class="lnk-back-login">&larr; Kembali</a></p>
+    </div>
+
+    <div id="auth-otp" class="hidden">
+      <p class="sub" id="otp-info">Masukkan 6 digit kode OTP.</p>
+      <label>Kode OTP</label>
+      <input type="text" id="in-otp" inputmode="numeric" maxlength="6" placeholder="______">
+      <div id="otp-newpin-wrap">
+        <label>Buat PIN baru (6 digit angka)</label>
+        <input type="password" id="in-newpin" inputmode="numeric" maxlength="6" placeholder="••••••">
+      </div>
+      <button class="mt16" style="width:100%" id="btn-verify-otp">Verifikasi</button>
+      <p class="center mt8"><a href="#" id="lnk-resend-otp">Kirim ulang</a> ·
+        <a href="#" class="lnk-back-login">Batal</a></p>
+    </div>
+  </div>
+  <p class="center muted" style="font-size:11px">Login berbasis NIA — bukan akun Google. Data identitas bersumber dari Master Data Aktivis HCMD.</p>
+</div>
+
+<!-- ============================ APP ============================ -->
+<div id="app" class="hidden">
+  <div class="appbar">
+    <div class="wrap">
+      <strong>🧭</strong>
+      <h1>KK-360 Performance</h1>
+      <span class="sp"></span>
+      <span id="who" style="font-size:12px;opacity:.9"></span>
+      <button id="btn-logout">Keluar</button>
+    </div>
+  </div>
+  <div class="wrap">
+
+    <!-- ---------- BERANDA ---------- -->
+    <section id="view-home" class="view">
+      <div class="card">
+        <h2>Beranda</h2>
+        <p class="sub" id="home-greeting">—</p>
+        <div class="menu-grid">
+          <div class="menu-card" data-nav="assessment">
+            <span class="badge" id="badge-360">0</span>
+            <div class="ico">📝</div><h3>Penilaian 360°</h3>
+            <small>Nilai diri sendiri, rekan, atasan, dan bawahan dalam unit Anda.</small>
+          </div>
+          <div class="menu-card" data-nav="interview">
+            <span class="badge" id="badge-iv">0</span>
+            <div class="ico">🗣️</div><h3>Pertanyaan Wawancara</h3>
+            <small>Wawancara Appraisal Kinerja Tahunan bersama atasan/bawahan langsung.</small>
+          </div>
+          <div class="menu-card" data-nav="report">
+            <div class="ico">📊</div><h3>Laporan</h3>
+            <small>Dashboard progres, skor INVICTUS, laporan agregat, ekspor PDF/Excel.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="home-progress">
+        <h2>Progres Periode Berjalan</h2>
+        <p class="sub" id="home-progress-sub">Memuat…</p>
+        <div id="home-progress-body"></div>
+      </div>
+
+      <div class="card hidden" id="admin-panel">
+        <h2>Panel Admin / HCMD</h2>
+        <p class="sub">Impor roster, tabel referensi level jabatan, periode, pengingat.</p>
+
+        <h3>1. Impor Roster Aktivis</h3>
+        <label>ID Google Spreadsheet sumber (hasil upload <code>Data_Aktivis_[Bulan]_[Tahun].xlsx</code> ke Google Sheets)</label>
+        <input type="text" id="imp-id" placeholder="mis. 1AbC...xyz">
+        <label>Nama tab (opsional, kosong = tab pertama)</label>
+        <input type="text" id="imp-tab" placeholder="mis. Agustus">
+        <div class="row mt8">
+          <button class="secondary" id="btn-imp-preview">Pratinjau (dry-run)</button>
+          <button id="btn-imp-apply">Impor &amp; Berlakukan</button>
+        </div>
+        <pre id="imp-result" class="muted" style="white-space:pre-wrap;font-size:12px;margin-top:10px"></pre>
+
+        <h3 class="mt16">2. Tabel Referensi Level Jabatan</h3>
+        <div id="lvlref-list"></div>
+        <div class="grid2 mt8">
+          <input type="text" id="lvl-pola" placeholder="pola kata kunci / regex, mis. Head of|Manager">
+          <select id="lvl-level">
+            <option>Pimpinan Puncak</option>
+            <option>Pimpinan Menengah</option>
+            <option>Pimpinan Menengah (Pratama)</option>
+            <option>Staf Pelaksana</option>
+          </select>
+        </div>
+        <label class="row" style="gap:6px"><input type="checkbox" id="lvl-trig" style="width:auto"> Memicu kuesioner Teknis Kepemimpinan</label>
+        <button class="secondary mt8" id="btn-add-lvlref">Tambah Pola</button>
+        <p class="muted mt8" id="lvl-perlu"></p>
+
+        <h3 class="mt16">3. Periode Penilaian</h3>
+        <div id="periode-list"></div>
+        <div class="grid2 mt8">
+          <input type="text" id="per-nama" placeholder="Nama periode, mis. Penilaian 360 Tahun 2026">
+          <select id="per-jenis"><option value="360">360°</option><option value="wawancara">Wawancara</option></select>
+          <input type="date" id="per-mulai">
+          <input type="date" id="per-selesai">
+        </div>
+        <button class="secondary mt8" id="btn-create-periode">Buat Periode</button>
+
+        <h3 class="mt16">4. Pengingat &amp; Trigger</h3>
+        <div class="row">
+          <button class="secondary" id="btn-install-triggers">Pasang Trigger Harian</button>
+          <button class="secondary" id="btn-run-reminder">Kirim Pengingat Sekarang</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- PENILAIAN 360: DAFTAR ---------- -->
+    <section id="view-assessment" class="view hidden">
+      <div class="card">
+        <div class="row"><button class="secondary" data-nav="home">&larr; Beranda</button>
+          <h2 class="mb0" style="flex:1">Penilaian 360°</h2></div>
+        <p class="sub" id="asg-periode">—</p>
+        <div class="pbar mt8"><i id="asg-pbar" style="width:0%"></i></div>
+        <p class="muted" id="asg-count">—</p>
+        <div id="asg-list" class="mt16"></div>
+      </div>
+    </section>
+
+    <!-- ---------- PENILAIAN 360: WIZARD ---------- -->
+    <section id="view-wizard" class="view hidden">
+      <div class="card">
+        <div class="row">
+          <button class="secondary" id="btn-wz-back">&larr; Kembali</button>
+          <h2 class="mb0" style="flex:1">Formulir Penilaian</h2>
+        </div>
+        <div id="wz-context" class="card" style="background:var(--chip);margin-top:12px"></div>
+        <div class="pbar mt8"><i id="wz-pbar" style="width:0%"></i></div>
+        <p class="muted" id="wz-progress">0 dari 0 terjawab</p>
+        <div id="wz-step-kal-core"></div>
+        <div id="wz-step-core"></div>
+        <div id="wz-step-kal-teknis"></div>
+        <div id="wz-step-teknis"></div>
+        <label>Catatan khusus untuk pemangku jabatan (opsional)</label>
+        <textarea id="wz-catatan" placeholder="Masukan/observasi tambahan…"></textarea>
+        <div id="wz-unanswered" class="muted mt8"></div>
+        <div class="sticky-actions">
+          <span class="muted" id="wz-autosave" style="align-self:center;font-size:12px"></span>
+          <button class="green" id="wz-submit">Kirim Penilaian</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- WAWANCARA: DAFTAR ---------- -->
+    <section id="view-interview" class="view hidden">
+      <div class="card">
+        <div class="row"><button class="secondary" data-nav="home">&larr; Beranda</button>
+          <h2 class="mb0" style="flex:1">Pertanyaan Wawancara</h2></div>
+        <p class="sub" id="iv-periode">—</p>
+        <h3>Sebagai Atasan (mewawancarai bawahan)</h3>
+        <div id="iv-list-atasan"><p class="muted">—</p></div>
+        <h3 class="mt16">Sebagai Bawahan (diwawancarai atasan)</h3>
+        <div id="iv-list-bawahan"><p class="muted">—</p></div>
+      </div>
+    </section>
+
+    <!-- ---------- WAWANCARA: FORM ---------- -->
+    <section id="view-iv-form" class="view hidden">
+      <div class="card">
+        <div class="row">
+          <button class="secondary" data-nav="interview">&larr; Daftar Sesi</button>
+          <h2 class="mb0" style="flex:1">Sesi Wawancara</h2>
+        </div>
+        <div id="ivf-head" class="card" style="background:var(--chip);margin-top:12px"></div>
+        <div id="ivf-body"></div>
+        <div id="ivf-rtl-wrap" class="hidden">
+          <h3 class="mt16">Rencana Tindak Lanjut</h3>
+          <div id="ivf-rtl"></div>
+          <button class="secondary mt8" id="btn-ivf-add-rtl">+ Baris</button>
+        </div>
+        <div class="sticky-actions">
+          <button class="secondary" id="ivf-save">Simpan</button>
+          <button class="green" id="ivf-confirm">Konfirmasi Sesi</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- LAPORAN ---------- -->
+    <section id="view-report" class="view hidden">
+      <div class="card">
+        <div class="row"><button class="secondary" data-nav="home">&larr; Beranda</button>
+          <h2 class="mb0" style="flex:1">Laporan</h2></div>
+        <div class="row mt8">
+          <button class="secondary" data-rtab="individu">Laporan Individu</button>
+          <button class="secondary" data-rtab="agregat">Laporan Agregat</button>
+          <button class="secondary" data-rtab="kualitas">Kualitas Data</button>
+        </div>
+      </div>
+
+      <div class="card rtab" id="rtab-individu">
+        <h2>Laporan Individu</h2>
+        <p class="sub">Skor 8 dimensi INVICTUS, perbandingan Self/Peer/Atasan/Bawahan, ringkasan wawancara.</p>
+        <div class="row">
+          <input type="text" id="rep-nia" placeholder="NIA (kosong = diri sendiri)">
+          <button class="blue" id="btn-rep-individu">Tampilkan</button>
+          <button class="secondary" id="btn-rep-pdf">Unduh PDF</button>
+        </div>
+        <div id="rep-ind-body" class="mt16"></div>
+        <canvas id="rep-radar" height="260" class="mt16"></canvas>
+        <canvas id="rep-bar" height="220" class="mt16"></canvas>
+      </div>
+
+      <div class="card rtab hidden" id="rtab-agregat">
+        <h2>Laporan Agregat &amp; Peringkat</h2>
+        <div class="row">
+          <select id="rep-groupby">
+            <option value="bo">Per Branch Office (BO)</option>
+            <option value="area">Per Area</option>
+            <option value="unit">Per Unit Bisnis</option>
+          </select>
+          <button class="blue" id="btn-rep-agregat">Tampilkan</button>
+          <button class="secondary" id="btn-rep-excel">Ekspor Excel</button>
+        </div>
+        <div id="rep-agg-body" class="mt16"></div>
+      </div>
+
+      <div class="card rtab hidden" id="rtab-kualitas">
+        <h2>Laporan Kualitas Data</h2>
+        <p class="sub">Kegagalan kalibrasi, pola straight-lining, NIA duplikat, jabatan belum terpetakan.</p>
+        <button class="blue" id="btn-rep-kualitas">Muat</button>
+        <div id="rep-qual-body" class="mt16"></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/util.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/home.js"></script>
+<script src="js/assessment.js"></script>
+<script src="js/interview.js"></script>
+<script src="js/report.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

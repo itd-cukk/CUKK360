@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const SRC = path.join(__dirname, '..', '..', 'src');
+const SRC = path.join(__dirname, '..', '..', 'gas');
 
 function makeStubs(overrides = {}) {
   const store = {};

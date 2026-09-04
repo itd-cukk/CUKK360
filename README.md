@@ -1,235 +1,207 @@
 # KK-360 Performance — Penilaian Kinerja 360° Jaringan Gerakan Keling Kumang
 
-Aplikasi web pengganti Google Form "Lembaran Penilaian Kinerja Jaringan Gerakan Keling Kumang".
-Dibangun **murni di atas Google Apps Script + Google Sheets + HtmlService**, dikelola lewat
-**clasp + GitHub Actions**. Login berbasis **NIA + PIN + OTP** (bukan akun Google).
+Aplikasi web pengganti Google Form "Lembaran Penilaian Kinerja Jaringan Gerakan
+Keling Kumang". Login berbasis **NIA + PIN + OTP** (bukan akun Google).
 
-Dokumen sumber kebenaran: `docs/FRD_Aplikasi_Penilaian_Kinerja_360_Keling_Kumang_v1.2.docx` (11 bab + lampiran).
+**Arsitektur (mengikuti pola project `laporan-hn`):**
 
----
-
-## 1. Arsitektur singkat
+```
+┌──────────────────────────┐        fetch(SCRIPT_URL + '?action=...')        ┌───────────────────────────┐
+│  FRONTEND (statis)        │  ────────  GET (baca) / POST (tulis)  ───────►  │  BACKEND — Google Apps     │
+│  index.html + css/ + js/  │  ◄────────         JSON / JSONP        ───────  │  Script (Web App JSON API) │
+│  di Cloudflare Pages      │                                                 │  gas/*.gs  +  Google Sheets │
+└──────────────────────────┘                                                 └───────────────────────────┘
+        ▲ auto-deploy tiap git push (integrasi Git Cloudflare)                        ▲ update: tempel gas/*.gs
+                                                                                       ke editor / `clasp push`
+```
 
 | Lapis | Teknologi |
 |---|---|
-| Backend/runtime | Google Apps Script (V8), tanpa server terpisah |
-| Database | 1 Google Spreadsheet, 17 sheet (lihat `SCHEMA` di `src/Utils.gs`) |
-| Frontend | `HtmlService` + `google.script.run`, CSS custom (palet Keling Kumang), Chart.js via cdnjs |
-| Auth | NIA + PIN (hash SHA-256 + pepper di Script Properties) + OTP email; sesi UUID di `CacheService` (TTL 8 jam) |
+| Frontend | `index.html` + `css/styles.css` + `js/*.js` murni (tanpa framework). Chart.js via cdnjs. Di-host **Cloudflare Pages**, tersambung ke repo GitHub → tiap `git push` = auto-deploy. |
+| Backend | Google Apps Script (V8) di-deploy sebagai **Web App** (`doGet`/`doPost` → JSON). Kode di `gas/00_Config.gs` … `gas/12_Router.gs`. |
+| Database | 1 Google Spreadsheet, 17 sheet (lihat `SCHEMA` di `gas/01_Utils.gs`). |
+| Komunikasi | `js/api.js`: `apiGet` (fetch, fallback JSONP) & `apiPost` (`Content-Type: text/plain` → tanpa CORS preflight). URL backend dari env `SCRIPT_URL` (disuntik `functions/_middleware.js`). |
+| Auth | NIA + PIN (hash SHA-256 + pepper di Script Properties) + OTP email; sesi UUID di `CacheService` (TTL 8 jam). |
 | Notifikasi | `MailApp` |
-| Concurrency | `LockService` pada seluruh operasi tulis kritis |
-| Performa | Master Data & Tabel Referensi Level Jabatan di-cache sebagai JSON di `PropertiesService`/`CacheService`, di-refresh saat impor roster |
-| CI/CD | GitHub Actions → `clasp push` (develop/staging) & `clasp push + clasp deploy` (main/produksi) |
+| Concurrency | `LockService` pada semua operasi tulis kritis |
+| Performa | Master Data & Tabel Referensi Level Jabatan di-cache JSON di `PropertiesService`/`CacheService`, refresh saat impor roster |
 
 ### Struktur repo
 
 ```
 /
-├── src/
-│   ├── appsscript.json      # manifest (rootDir clasp = src/)
-│   ├── Code.gs              # doGet, include(), setup()/reseed (router — lihat Asumsi #1)
-│   ├── Auth.gs              # login NIA, PIN, OTP, sesi, perangkat dikenal
-│   ├── MasterData.gs        # impor roster, validasi, Tabel Referensi Level Jabatan, deteksi hierarki, cache
-│   ├── Period.gs            # periode penilaian + generateAssignments_
-│   ├── QuestionBank.gs      # bank pertanyaan INVICTUS, kalibrasi, Teknis Kepemimpinan
-│   ├── Assessment360.gs     # alur Penilaian 360°
-│   ├── Interview.gs         # Wawancara Appraisal Tahunan + seed bank pertanyaan wawancara
-│   ├── Validation.gs        # straight-lining, kalibrasi gagal, laporan kualitas data, audit reader
-│   ├── Notification.gs      # pengingat H-3/H-1, ringkasan progres Admin
-│   ├── Triggers.gs          # instalasi time-driven trigger harian
-│   ├── Report.gs            # agregasi skor INVICTUS, dashboard, laporan individu/agregat, ekspor
-│   ├── Utils.gs             # helper umum, konstanta, SCHEMA Google Sheets
-│   ├── Login.html           # shell SPA (memuat Dashboard/Assessment/Interview/Report + seluruh client JS)
-│   ├── Dashboard.html       # beranda 3 menu + panel Admin (fragment)
-│   ├── Assessment.html      # daftar tugas + wizard 360° (fragment)
-│   ├── Interview.html       # daftar sesi + form wawancara (fragment)
-│   ├── Report.html          # dashboard laporan (fragment)
-│   └── Styles.html          # CSS, di-include lewat <?!= include('Styles') ?>
-├── tests/                   # unit test Jest (logika murni)
-├── .github/workflows/deploy.yml
-└── docs/FRD_...v1.2.docx
+├── index.html                 shell SPA (semua layar inline)
+├── favicon.ico
+├── _redirects                 Cloudflare Pages: blok /gas /tests /docs dari akses publik
+├── css/
+│   └── styles.css
+├── js/
+│   ├── config.js              getUrl() / SESSION / DEVICE_ID
+│   ├── api.js                 apiGet / apiPost / JSONP fallback
+│   ├── util.js                $ / el / esc / toast / busy
+│   ├── auth.js                login NIA + PIN + OTP + sesi
+│   ├── home.js                Beranda (progres + badge) & Panel Admin
+│   ├── assessment.js          Penilaian 360°: daftar + wizard
+│   ├── interview.js           Wawancara Appraisal: daftar + form
+│   ├── report.js              Laporan: individu (radar/bar) + agregat + kualitas
+│   └── app.js                 router nav() + bootstrap (dimuat terakhir)
+├── functions/
+│   └── _middleware.js         Cloudflare Pages Function — suntik window.__SCRIPT_URL__
+├── gas/                        BACKEND — di-deploy ke Apps Script (bukan ke Cloudflare)
+│   ├── appsscript.json        manifest (TZ Asia/Pontianak, webapp, oauthScopes)
+│   ├── 00_Config.gs           jr() JSON/JSONP + entry-point Admin (setup/firstImport/reseed/setAdminNias)
+│   ├── 01_Utils.gs            helper umum, konstanta, SCHEMA 17 sheet
+│   ├── 02_Auth.gs             login/PIN/OTP/sesi/perangkat dikenal
+│   ├── 03_MasterData.gs       impor roster + validasi, resolveLevelJabatan_, deteksi hierarki, cache
+│   ├── 04_Period.gs           periode + generateAssignments_
+│   ├── 05_QuestionBank.gs     bank pertanyaan INVICTUS / kalibrasi / Teknis Kepemimpinan
+│   ├── 06_Assessment360.gs    alur Penilaian 360°
+│   ├── 07_Interview.gs        Wawancara Appraisal + seed pertanyaan wawancara
+│   ├── 08_Validation.gs       straight-lining, kalibrasi, laporan kualitas data, audit reader
+│   ├── 09_Notification.gs     pengingat H-3/H-1 + ringkasan progres Admin
+│   ├── 10_Triggers.gs         time-driven trigger harian
+│   ├── 11_Report.gs           agregasi skor INVICTUS, dashboard, laporan individu/agregat, ekspor
+│   └── 12_Router.gs           doGet/doPost + tabel ACTIONS (action string → handler)
+├── tests/                     unit test Jest (logika murni backend)
+├── .github/workflows/test.yml CI: hanya `npm test` (deploy ditangani Cloudflare + manual GAS)
+├── .clasp.json / .claspignore clasp OPSIONAL (rootDir: gas)
+└── docs/
+    ├── PANDUAN_SETUP.md       panduan langkah-demi-langkah lengkap
+    └── FRD_...v1.2.docx
 ```
 
 ---
 
-## 2. Setup dari nol (untuk HCMD / ITD)
+## Setup singkat
 
-> **Panduan langkah-demi-langkah lengkap** (GAS + clasp + GitHub + operasional
-> periode pertama + troubleshooting): **[`docs/PANDUAN_SETUP.md`](docs/PANDUAN_SETUP.md)**.
-> Ringkasan di bawah ini.
+Panduan lengkap: **[`docs/PANDUAN_SETUP.md`](docs/PANDUAN_SETUP.md)**. Ringkasan:
 
-### 2.1 Prasyarat lokal
+### A. Backend (Google Apps Script)
+1. <https://script.google.com> → **New project** → nama `KK-360 Performance`.
+2. Buat 13 file `.gs` (nama = `00_Config` … `12_Router`) + `appsscript.json`, **tempel isi dari folder `gas/`**.
+   *(atau `clasp login` lalu `clasp push` — `.clasp.json` `rootDir: gas`).*
+3. Editor → Run berurutan: **`setup`** → isi Script Property `ADMIN_NIAS` → **`installTriggers`**.
+4. Impor roster pertama: isi Script Property `BOOTSTRAP_ROSTER_SHEET_ID`, Run **`firstImportDryRun`** → **`firstImport`**.
+5. **Deploy → New deployment → Web app**: *Execute as* **Me**, *Who has access* **Anyone**.
+   Salin **URL `/exec`**.
 
-```bash
-npm install -g @google/clasp
-npm install            # devDependencies: jest, clasp
-clasp login            # buat ~/.clasprc.json (JANGAN commit)
-```
+### B. Frontend (GitHub + Cloudflare Pages)
+1. Buat repo GitHub `CUKK360`, `git push`.
+2. Cloudflare dash → **Workers & Pages → Create → Pages → Connect to Git** → pilih repo.
+   - Framework preset: **None**, Build command: *(kosong)*, Build output directory: **`/`**.
+3. Project **Settings → Environment variables** → tambah `SCRIPT_URL` = URL `/exec` dari A.5 → **Redeploy**.
+4. Buka domain `*.pages.dev` → muncul layar Login NIA.
 
-### 2.2 Buat Apps Script Project & tautkan
-
-Opsi A — proyek baru:
-```bash
-clasp create --type webapp --title "KK-360 Performance" --rootDir src
-# clasp menulis scriptId ke .clasp.json; commit .clasp.json TANPA kredensial
-```
-Opsi B — sudah ada scriptId: edit `.clasp.json`, ganti `GANTI_DENGAN_SCRIPT_ID_ANDA`.
-
-```bash
-clasp push        # unggah seluruh src/ ke Apps Script
-```
-
-### 2.3 Bootstrap database & seed data
-
-Di editor Apps Script (Extensions ▸ Apps Script), jalankan fungsi berikut **sekali**, berurutan:
-
-1. `setup()` — membuat Spreadsheet database baru, menyimpan `SPREADSHEET_ID` + `OTP_PEPPER`
-   ke **Script Properties**, membuat 17 sheet + header, lalu seed:
-   - `referensi_level_jabatan` (pola awal Lampiran F)
-   - `kategori_core_value` (8 dimensi INVICTUS) + `pertanyaan_360` (24 butir + 2 kalibrasi + 6 teknis) + `opsi_jawaban_teknis`
-   - `pertanyaan_wawancara` (contoh Lampiran G)
-2. `setAdminNias("<NIA_admin_1>,<NIA_admin_2>")` — daftar NIA yang mendapat hak **Admin/Super Admin**
-   (di luar status kepegawaian pada Master Data, sesuai Bab 3 FRD).
-3. `installTriggers()` — memasang trigger harian 07:00 `Asia/Pontianak` untuk pengingat & ringkasan progres.
-
-> Jika `SPREADSHEET_ID` sudah ada dan ingin memakai Spreadsheet lain, ubah manual di
-> **Project Settings ▸ Script Properties**, lalu jalankan `reseedAll()`.
-
-### 2.4 Deploy Web App
-
-Deploy ▸ New deployment ▸ **Web app**:
-- **Execute as:** Me
-- **Who has access:** Anyone (even anonymous)
-
-Bagikan URL `/exec` ke aktivis.
-
-### 2.5 Impor roster aktivis pertama kali
-
-1. Upload `Data_Aktivis_[Bulan]_[Tahun].xlsx` ke Google Drive, **buka sebagai Google Sheets**, salin ID Spreadsheet-nya.
-2. Login aplikasi sebagai NIA Admin ▸ **Panel Admin ▸ Impor Roster**:
-   - tempel ID Spreadsheet sumber, isi nama tab (mis. `Agustus`)
-   - klik **Pratinjau (dry-run)** → cek laporan validasi (NIA duplikat, kolom kosong, format NIA, jabatan baru)
-   - bila bersih, klik **Impor & Berlakukan**
-   - Kolom sumber yang dibaca: `NIA, NAMA AKTIVIS, UNIT, BO, AREA, JABATAN` (+ `EMAIL` opsional).
-   - **BR-11:** impor dengan NIA duplikat **ditahan** (tidak diberlakukan) sampai dikoreksi.
-3. Tinjau **jabatan "perlu dipetakan"** di Panel Admin, tambahkan pola ke Tabel Referensi Level Jabatan bila perlu.
-
-### 2.6 Membuka periode penilaian
-
-Panel Admin ▸ **Periode Penilaian** ▸ buat periode (`jenis = 360` atau `wawancara`, isi tenggat) ▸ set status **aktif**.
-Mengaktifkan periode otomatis menjalankan `detectHierarchy_()` lalu `generateAssignments_()` (360) atau
-`generateInterviewSessions_()` (wawancara).
-
-### 2.7 Deploy manual (fallback tanpa CI)
-
-```bash
-clasp push
-clasp deploy --description "manual $(date +%F)"
-```
+### C. Operasional periode pertama (di aplikasi)
+Login admin → aktivasi PIN (OTP) → Panel Admin → tinjau jabatan belum terpetakan →
+**Buat Periode** `360°` → **aktif** (otomatis deteksi hierarki + generate penugasan).
 
 ---
 
-## 3. CI/CD (GitHub Actions)
+## Alur update ke depan
 
-`.github/workflows/deploy.yml`:
-- **job `test`** — `npm test` (Jest) untuk setiap push & PR ke `main`.
-- **job `deploy`** (hanya `push`):
-  - branch `develop` → `clasp push --force` (staging)
-  - branch `main` → `clasp push --force && clasp deploy` (produksi)
-
-### GitHub Secrets yang wajib diisi
-
-| Secret | Isi |
+| Yang diubah | Cara |
 |---|---|
-| `CLASP_CREDENTIALS` | seluruh isi berkas `~/.clasprc.json` hasil `clasp login` |
-| `CLASP_SCRIPT_ID` | Script ID Apps Script Project |
-
-**Jangan pernah** commit `.clasprc.json` / `clasprc.json` — sudah masuk `.gitignore`.
+| Frontend (`index.html`, `css/`, `js/`) | `git commit` + `git push` → Cloudflare Pages auto-deploy |
+| Backend (`gas/*.gs`) | tempel isi file yang berubah ke editor Apps Script *(atau `clasp push`)*, lalu **Deploy → Manage deployments → Edit → New version** |
+| Bank pertanyaan / tabel referensi di kode | setelah update `gas/`, Run **`reseedAll`** di editor |
+| Roster bulanan | Panel Admin → Impor Roster → dry-run → Berlakukan |
 
 ---
 
-## 4. Pengujian
+## Endpoint backend (tabel `ACTIONS` di `gas/12_Router.gs`)
+
+| action | Metode | Handler |
+|---|---|---|
+| `ping` | GET | cek koneksi |
+| `auth.login` / `auth.requestOtp` / `auth.verifyOtp` / `auth.logout` | POST | `02_Auth.gs` |
+| `auth.me` | GET | validasi sesi |
+| `dashboard` | GET | `reportDashboard` |
+| `a360.list` / `a360.open` | GET | daftar & buka tugas 360 |
+| `a360.saveDraft` / `a360.submit` | POST | auto-save & kirim |
+| `iv.list` / `iv.open` | GET | daftar & buka sesi wawancara |
+| `iv.saveSelf` / `iv.saveAtasan` / `iv.confirm` | POST | isi & konfirmasi wawancara |
+| `report.individu` / `report.individuPdf` / `report.agregat` / `report.excelUrl` | GET | laporan |
+| `validation.report` / `audit.tail` | GET | kualitas data & audit (Admin/IAD) |
+| `periode.list` | GET / `periode.create` / `periode.setStatus` | POST | periode (Admin) |
+| `admin.importRoster` / `admin.upsertLevelRef` / `admin.installTriggers` / `admin.runReminderNow` / `admin.setHierarkiManual` | POST | Master Data (Admin) |
+| `admin.masterSummary` / `admin.listLevelRef` / `admin.listAktivis` | GET | Master Data (Admin) |
+
+Semua handler mengembalikan `{ok:true, data:...}` atau `{ok:false, error:"..."}`.
+
+---
+
+## Pengujian
 
 ```bash
-npm test
+npm install
+npm test        # 51 test — resolveLevelJabatan_, format NIA, average_/predikat_, shuffle_
 ```
 
-Cakupan unit test (logika murni, tanpa layanan Apps Script):
-- `tests/resolveLevelJabatan.test.js` — pemetaan teks jabatan → Level Jabatan + pemicu Teknis (FR-09).
-- `tests/utils.test.js` — normalisasi & validasi format NIA (teks, alfanumerik), `average_`/`round2_`, `shuffle_`, `cleanText_`, `toBool_`.
-- `tests/score.test.js` — ambang `predikat_` dan pola agregasi skor per dimensi (BR-07).
-
-Fungsi yang bergantung pada `SpreadsheetApp`/`MailApp`/`CacheService` **tidak** diuji otomatis;
-harness `tests/helpers/loadGs.js` men-stub layanan Google seperlunya untuk fungsi murni.
-Uji end-to-end (impor roster, submit 360°, OTP email, ekspor) dilakukan **manual** di lingkungan staging.
+Harness `tests/helpers/loadGs.js` men-stub layanan Google (`SpreadsheetApp`, `MailApp`,
+`CacheService`, …) untuk menguji fungsi murni dari `gas/*.gs`. Uji end-to-end (impor
+roster, submit 360°, OTP, ekspor, CORS) dilakukan manual di staging.
 
 ---
 
-## 5. Aturan bisnis kunci yang ditegakkan di server
+## Aturan bisnis kunci (ditegakkan di backend)
 
 | Kode | Ringkasan | Lokasi |
 |---|---|---|
-| BR-10 | Tidak boleh menilai/dinilai lintas Unit Bisnis | `generateAssignments_`, `a360ListTasks`, `a360OpenTask` |
+| BR-10 | Tidak menilai/dinilai lintas Unit Bisnis | `generateAssignments_`, `a360ListTasks`, `a360OpenTask` |
 | BR-11 | NIA unik; impor duplikat ditahan | `importRosterFromSheet_` |
-| BR-12 | OTP dikirim ke email pemilik NIA (Master Data), bukan pihak yang login | `Auth._issueOtp_` |
-| BR-04 / FR-24 | Seksi Teknis hanya bila relasi = bawahan→atasan **atau** `is_trigger_teknis = TRUE` | `a360OpenTask` |
-| BR-05 | Kalibrasi gagal **tidak** memblokir submit, hanya flag | `a360SubmitTask` + `evaluateSubmissionQuality_` |
-| BR-07 | Skor dimensi mengecualikan butir kalibrasi | `computeScores_` (hanya butir `core_value`) |
+| BR-12 | OTP ke email pemilik NIA, bukan pihak yang login | `02_Auth.gs::_issueOtp_` |
+| BR-04 / FR-24 | Seksi Teknis hanya bila relasi bawahan→atasan **atau** `is_trigger_teknis=TRUE` | `a360OpenTask` |
+| BR-05 | Kalibrasi gagal tidak memblokir submit, hanya flag | `a360SubmitTask` + `evaluateSubmissionQuality_` |
+| BR-07 | Skor dimensi mengecualikan butir kalibrasi | `computeScores_` |
 | BR-13 | Pasangan wawancara = hierarki 360°; sesi terkunci setelah 2 konfirmasi | `generateInterviewSessions_`, `ivConfirmSession` |
 
 ---
 
-## 6. Asumsi yang diambil selama pembangunan
+## Asumsi yang diambil
 
-1. **File router `Code.gs`.** Diagram struktur pada prompt tidak menyebut file pemegang
-   `doGet`/`include`. Apps Script mewajibkannya, jadi ditambahkan `src/Code.gs`. Seluruh
-   logika bisnis tetap di modul sesuai Bagian 3 prompt.
-2. **`appsscript.json` berada di `src/`**, bukan root repo. `clasp` mensyaratkan manifest
-   berada di dalam `rootDir`. `rootDir` diset ke `src/`.
-3. **PIN 6 digit angka** dipakai sebagai kredensial utama (prompt menyebut "PIN/password").
-   Hash PIN disimpan di **Script Properties** (`pin_<NIA>`), bukan di Sheet, agar tidak
-   ikut terekspor pada laporan/ekspor Excel.
-4. **"Perangkat dikenal"** = fingerprint acak yang disimpan browser di `localStorage`
-   (`kk360_device`) dan hash-nya dicatat di Script Properties (`dev_<NIA>`, maks. 5).
-   Login dari perangkat yang hash-nya belum tercatat memicu OTP (FR-04/BR-12).
-5. **Peran fungsional** (Aktivis/Pimpinan) diturunkan dari Level Jabatan hasil pemetaan;
-   **Admin/Super Admin** ditentukan eksplisit lewat `setAdminNias(...)` (Script Property `ADMIN_NIAS`).
-6. **Urutan Tabel Referensi Level Jabatan**: pola "Pratama/Plt/Junior/Asisten" ditaruh
-   **sebelum** "Pimpinan Menengah" umum, sehingga "Plt Branch Manager" → *Pimpinan Menengah
-   (Pratama)*. Prompt Bagian 6.3 menuliskan urutan terbalik; Admin dapat menata ulang
-   baris via Panel Admin.
-7. **Deteksi hierarki**: Staf pada satu `bo` → atasan = pemegang level pimpinan pada `bo`
-   yang sama (fallback: pimpinan pada `area` yang sama); Pimpinan Menengah → atasan =
-   level lebih tinggi pada `area` yang sama (fallback: Pimpinan Puncak pada `unit` yang sama).
-   Baris `sumber = koreksi_manual_admin` tidak pernah ditimpa saat deteksi ulang.
-8. **Peer assignment**: rekan dengan `unit + bo + level` yang sama; diambil acak sebanyak
-   `PEER_MIN` (Script Property, default 2). Bila anggota grup ≤ `PEER_MIN`, semua dinilai.
-9. **Ekspor Excel** = tautan ekspor bawaan Google Sheets (`/export?format=xlsx`) untuk
-   seluruh database (Admin). **Ekspor PDF laporan individu** dibuat via
-   `Utilities.newBlob(html).getAs('application/pdf')` dan dikirim ke client sebagai
-   data URI base64 (tanpa akses Drive).
-10. **`riwayat_mutasi_aktivis`** dicatat saat impor roster mengubah `jabatan_text`/`bo`/`area`
-    (FR-11), memakai `berlaku_sejak_periode` = periode 360 aktif saat impor (kosong bila tidak ada).
-11. Butir kalibrasi disimpan di `pertanyaan_360` dengan `id` tetap `kal_core` / `kal_teknis`
-    dan `tipe = kalibrasi`; jawabannya ikut ditulis ke `jawaban_360` untuk keperluan audit,
-    namun dikecualikan dari seluruh perhitungan skor.
+1. **Backend = JSON API murni** (bukan HtmlService). FRD Bab 10 menyebut HtmlService;
+   disubstitusi dengan model frontend-terpisah + `doGet`/`doPost` JSON agar **sama
+   dengan project `laporan-hn` yang sudah berjalan** (Cloudflare Pages + GAS API).
+2. **`appsscript.json` di `gas/`** (rootDir clasp). clasp bersifat opsional — update
+   backend juga bisa dengan menempel isi file ke editor Apps Script.
+3. **PIN 6 digit angka**; hash di Script Properties (`pin_<NIA>`), bukan di Sheet.
+4. **"Perangkat dikenal"** = id acak di `localStorage` (`kk360_device`); hash-nya
+   dicatat di Script Properties (`dev_<NIA>`, maks. 5). Perangkat baru → OTP.
+5. **Admin** ditentukan lewat Script Property `ADMIN_NIAS`; peran lain dari Level Jabatan.
+6. **Urutan Tabel Referensi Level Jabatan**: pola "Pratama/Plt/Junior/Asisten" sebelum
+   "Pimpinan Menengah" umum ("Plt Branch Manager" → *Pratama*). Bisa ditata ulang Admin.
+7. **Deteksi hierarki**: Staf se-`bo` → atasan level pimpinan di `bo` itu (fallback
+   `area`); Pimpinan Menengah → level lebih tinggi se-`area` (fallback Puncak se-`unit`).
+   Baris `sumber=koreksi_manual_admin` tak ditimpa.
+8. **Peer**: rekan `unit+bo+level` sama, diambil acak `PEER_MIN` (default 2).
+9. **CORS**: Web App di-deploy "Anyone" agar `/exec` mengembalikan
+   `Access-Control-Allow-Origin: *` untuk GET & POST `text/plain` lintas-origin dari
+   domain Cloudflare Pages (pola yang sama dipakai `laporan-hn`).
+10. **`_redirects`** memblok `/gas/*`, `/tests/*`, `/docs/*` dari Cloudflare Pages.
+    Kode backend tak memuat rahasia (semua di Script Properties), jadi ini higienis
+    bukan pengamanan kritis.
+11. Butir kalibrasi disimpan di `pertanyaan_360` id tetap `kal_core`/`kal_teknis`,
+    jawabannya ikut ke `jawaban_360` untuk audit, tapi dikecualikan dari skor.
 
 ---
 
-## 7. Konfigurasi (Script Properties)
+## Konfigurasi (Script Properties)
 
 | Key | Wajib | Default | Keterangan |
 |---|---|---|---|
-| `SPREADSHEET_ID` | ya | — | dibuat otomatis oleh `setup()` |
-| `OTP_PEPPER` | ya | dibuat `setup()` | garam hash OTP & PIN |
-| `ADMIN_NIAS` | ya | — | NIA admin, dipisah koma |
-| `PEER_MIN` | tidak | `2` | minimal rekan selevel yang dinilai (BR-03) |
-| `SELF_APPRAISAL_AKTIF` | tidak | `TRUE` | aktif/nonaktif form self-appraisal wawancara (FR-30) |
+| `SPREADSHEET_ID` | ✔ | dibuat `setup()` | ID Spreadsheet database |
+| `OTP_PEPPER` | ✔ | dibuat `setup()` | garam hash OTP & PIN — **jangan diubah** |
+| `ADMIN_NIAS` | ✔ | — | NIA admin, dipisah koma |
+| `PEER_MIN` | — | `2` | minimal rekan selevel dinilai (BR-03) |
+| `SELF_APPRAISAL_AKTIF` | — | `TRUE` | aktif/nonaktif form self-appraisal wawancara |
+| `BOOTSTRAP_ROSTER_SHEET_ID` | — | — | ID Spreadsheet roster untuk `firstImport` |
+| `BOOTSTRAP_ROSTER_TAB` | — | — | nama tab roster (default: tab pertama) |
+
+Dan di **Cloudflare Pages** (Environment variables): `SCRIPT_URL` = URL Web App `/exec`.
 
 ---
 
-## 8. Non-Goals (belum dikerjakan, sesuai Bagian 9 prompt)
+## Non-Goals
 
-- Modul penggajian / rekrutmen / HRIS lain.
-- Migrasi database ke luar Google Sheets (skema sudah dipisah rapi agar mudah dimigrasikan).
-- Native mobile app (cukup web responsif mobile-first).
+Modul penggajian/rekrutmen/HRIS lain; migrasi DB ke luar Google Sheets; native mobile app.

@@ -1,0 +1,4 @@
+# Cloudflare Pages — jangan sajikan kode backend / test / berkas kerja sebagai aset publik.
+/gas/*    /404    404
+/tests/*  /404    404
+/docs/*   /404    404

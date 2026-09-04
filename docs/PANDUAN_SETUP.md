@@ -1,28 +1,29 @@
 # Panduan Setup KK-360 Performance — Langkah demi Langkah
 
-Panduan ini mengurutkan **seluruh langkah dari nol** sampai aplikasi bisa dipakai
-aktivis: menyiapkan Google Apps Script (GAS), menghubungkan `clasp`, memasang
-repo GitHub + CI/CD, menginisialisasi database, deploy web app, dan operasional
-periode pertama.
+Model deployment **sama seperti project `laporan-hn` yang sudah berjalan**:
 
-Ikuti berurutan. Tanda ⏱️ = dilakukan sekali saat instalasi; 🔁 = rutin ke depan.
+- **Backend** = Google Apps Script (Web App JSON API) + Google Sheets → di-update
+  dengan **menempel isi file `gas/*.gs` ke editor Apps Script** (atau `clasp push`).
+- **Frontend** = file statis (`index.html` + `css/` + `js/`) di **Cloudflare Pages**,
+  tersambung ke repo **GitHub** → tiap `git push` = auto-deploy.
+- Keduanya terhubung lewat `fetch(SCRIPT_URL)`; `SCRIPT_URL` = URL Web App `/exec`,
+  disimpan sebagai environment variable di Cloudflare Pages.
 
-Ringkasan alur:
+Ikuti berurutan. ⏱️ = sekali saat instalasi; 🔁 = rutin ke depan.
 
 ```
-BAGIAN A  Siapkan akun & Apps Script Project        ⏱️
-BAGIAN B  Hubungkan komputer lokal via clasp        ⏱️
-BAGIAN C  Push kode pertama ke Apps Script          ⏱️
-BAGIAN D  Inisialisasi database (setup / seed)      ⏱️
-BAGIAN E  Impor roster aktivis pertama              ⏱️
-BAGIAN F  Deploy Web App                            ⏱️
-BAGIAN G  Repo GitHub + Secrets + CI/CD             ⏱️
-BAGIAN H  Operasional periode pertama              🔁
-BAGIAN I  Update rutin ke depan                    🔁
-BAGIAN J  Troubleshooting
+BAGIAN A  Backend: buat Apps Script Project + tempel gas/*.gs   ⏱️
+BAGIAN B  Backend: inisialisasi database (setup / seed)         ⏱️
+BAGIAN C  Backend: impor roster aktivis pertama                 ⏱️
+BAGIAN D  Backend: deploy Web App → dapat URL /exec             ⏱️
+BAGIAN E  GitHub: buat repo + push                              ⏱️
+BAGIAN F  Cloudflare Pages: connect repo + set SCRIPT_URL       ⏱️
+BAGIAN G  Operasional periode pertama (di aplikasi web)        🔁
+BAGIAN H  Update rutin ke depan                                🔁
+BAGIAN I  Troubleshooting
 ```
 
-Perkiraan waktu total instalasi: 45–60 menit.
+Perkiraan waktu instalasi: 45–60 menit.
 
 ---
 
@@ -30,387 +31,291 @@ Perkiraan waktu total instalasi: 45–60 menit.
 
 | Kebutuhan | Keterangan |
 |---|---|
-| Akun Google | **Disarankan akun khusus sistem** (mis. `it-kk360@domain-anda`), bukan akun pribadi. Semua Web App berjalan "Execute as: Me" akun ini, dan email OTP dikirim dari akun ini. Pastikan kuota `MailApp` cukup (akun Workspace: 1.500 email/hari; akun gmail biasa: 100/hari). |
-| Node.js ≥ 18 | untuk `clasp` + menjalankan test. Unduh: <https://nodejs.org> |
-| Git | untuk GitHub. Unduh: <https://git-scm.com> |
+| Akun Google sistem | disarankan akun khusus (mis. `it-kk360@domain`), **bukan** akun pribadi. Web App "Execute as: Me" akun ini; email OTP terkirim dari akun ini. Kuota `MailApp`: Workspace 1.500/hari, gmail biasa 100/hari. |
 | Akun GitHub | pemilik/kolaborator repo `CUKK360`. |
-| Berkas roster | `Data_Aktivis_[Bulan]_[Tahun].xlsx` dari HCMD (kolom: NO, NIA, NAMA AKTIVIS, UNIT, BO, AREA, JABATAN). |
+| Akun Cloudflare | gratis cukup. <https://dash.cloudflare.com/sign-up> |
+| Git + (opsional) Node.js ≥ 18 | Node hanya untuk `npm test` / `clasp`. Tempel manual tidak butuh Node. |
+| Berkas roster | `Data_Aktivis_[Bulan]_[Tahun].xlsx` dari HCMD (kolom NO, NIA, NAMA AKTIVIS, UNIT, BO, AREA, JABATAN). |
 
 ---
 
-## BAGIAN A — Akun & Apps Script Project ⏱️
+## BAGIAN A — Backend: Apps Script Project ⏱️
 
-### A1. Login ke akun Google sistem
-Buka browser, login **hanya** dengan akun Google sistem yang akan memiliki proyek ini.
+### A1. Login akun Google sistem & buat project
+1. Login browser **hanya** dengan akun Google sistem.
+2. Buka <https://script.google.com> → **New project**.
+3. Rename → `KK-360 Performance` (klik judul kiri atas).
 
-### A2. Aktifkan Google Apps Script API
-1. Buka <https://script.google.com/home/usersettings>
-2. Nyalakan **"Google Apps Script API"** → ON.
-   (Wajib agar `clasp` bisa push/pull.)
+### A2. Isi kode — pilih salah satu cara
 
-### A3. Buat Apps Script Project
-Ada 2 cara — **pilih salah satu**:
+**Cara 1 — tempel manual (seperti `laporan-hn`, tanpa Node):**
+1. Di editor, hapus file `Code.gs` bawaan (⋮ → Delete).
+2. Untuk **tiap** file di folder `gas/` repo ini, buat file baru di editor
+   (**＋ → Script**) dengan nama **persis tanpa `.gs`**, lalu tempel seluruh isinya:
 
-**Cara 1 (disarankan): lewat `clasp` di Bagian B** — lompat ke Bagian B, `clasp create` akan membuat project sekaligus.
+   | Buat file (editor) | Dari berkas repo |
+   |---|---|
+   | `00_Config` | `gas/00_Config.gs` |
+   | `01_Utils` | `gas/01_Utils.gs` |
+   | `02_Auth` | `gas/02_Auth.gs` |
+   | `03_MasterData` | `gas/03_MasterData.gs` |
+   | `04_Period` | `gas/04_Period.gs` |
+   | `05_QuestionBank` | `gas/05_QuestionBank.gs` |
+   | `06_Assessment360` | `gas/06_Assessment360.gs` |
+   | `07_Interview` | `gas/07_Interview.gs` |
+   | `08_Validation` | `gas/08_Validation.gs` |
+   | `09_Notification` | `gas/09_Notification.gs` |
+   | `10_Triggers` | `gas/10_Triggers.gs` |
+   | `11_Report` | `gas/11_Report.gs` |
+   | `12_Router` | `gas/12_Router.gs` |
 
-**Cara 2: manual**
-1. Buka <https://script.google.com> → **New project**.
-2. Rename jadi `KK-360 Performance`.
-3. Catat **Script ID**: menu ⚙️ **Project Settings** → "IDs" → salin *Script ID*.
-4. Lanjut ke Bagian B (pakai `clasp clone <SCRIPT_ID>`).
+3. Manifest: ⚙️ **Project Settings** → centang **"Show 'appsscript.json' manifest file in editor"**.
+   Buka file `appsscript.json` yang muncul → **ganti seluruh isinya** dengan isi `gas/appsscript.json` repo.
 
-> Anda **tidak perlu** menyalin file `.gs`/`.html` satu per satu secara manual —
-> `clasp push` (Bagian C) yang mengunggah seluruh isi folder `src/`.
+> Urutan nomor file (00…12) penting agar mudah dirawat; Apps Script sendiri
+> memuat semua file jadi satu lingkup global.
 
----
-
-## BAGIAN B — Hubungkan lokal via clasp ⏱️
-
-Jalankan di terminal, di folder repo (`.../penkin-cukk`):
-
+**Cara 2 — clasp (butuh Node):**
 ```bash
-# B1. Install dependency
-npm install -g @google/clasp
-npm install                      # jest + clasp lokal untuk test
-
-# B2. Login clasp (buka browser, pilih akun Google sistem yang sama)
-clasp login
-#  → membuat berkas ~/.clasprc.json  (JANGAN commit — sudah di .gitignore)
-
-# B3a. Kalau BELUM punya project (Cara 1 Bagian A):
-clasp create --type webapp --title "KK-360 Performance" --rootDir src
-#  → clasp menulis scriptId ke .clasp.json
-
-# B3b. Kalau SUDAH punya Script ID (Cara 2 Bagian A):
-#  Edit .clasp.json, ganti "GANTI_DENGAN_SCRIPT_ID_ANDA" dengan Script ID Anda.
-#  Isi file jadi:  { "scriptId": "1AbC...", "rootDir": "src" }
-```
-
-Verifikasi `.clasp.json` sudah benar:
-```bash
-cat .clasp.json
-# { "scriptId": "1AbC...xyz", "rootDir": "src" }
+cd "<folder repo>"
+npm install -g @google/clasp && npm install
+# nyalakan API: https://script.google.com/home/usersettings  → ON
+clasp login                      # pilih akun Google sistem
+# Ambil Script ID: editor ⚙️ Project Settings → "IDs" → salin.
+# Edit .clasp.json → ganti "GANTI_DENGAN_SCRIPT_ID_ANDA" dengan Script ID itu.
+clasp push                       # mengunggah seluruh gas/  (rootDir sudah = gas)
+npm test                         # opsional, 51 test harus lulus
 ```
 
 ---
 
-## BAGIAN C — Push kode pertama ⏱️
+## BAGIAN B — Backend: inisialisasi database ⏱️
 
-```bash
-# C1. Jalankan test dulu (harus lulus 51/51)
-npm test
+Semua di **editor Apps Script**: pilih nama fungsi di dropdown atas → **Run**.
+Saat pertama Run → **Authorize access** → pilih akun sistem → *Advanced* →
+*Go to KK-360 Performance (unsafe)* → **Allow**. (Scope: Spreadsheet, Gmail, Script, Drive — wajar.)
 
-# C2. Unggah seluruh src/ ke Apps Script
-clasp push
-#  → "Pushed 18 files."  (12 .gs + 5 .html + appsscript.json)
-
-# C3. Buka project di browser untuk verifikasi
-clasp open
-```
-
-Di editor Apps Script, pastikan file berikut muncul:
-`Code, Utils, Auth, MasterData, Period, QuestionBank, Assessment360, Interview,
-Validation, Notification, Triggers, Report` (12 script) dan
-`Login, Dashboard, Assessment, Interview, Report, Styles` (6 HTML).
-
----
-
-## BAGIAN D — Inisialisasi database ⏱️
-
-Semua di **editor Apps Script** (pilih fungsi di dropdown atas, klik **Run**).
-Saat pertama kali Run, Google minta **Authorize access** → pilih akun sistem →
-"Advanced" → "Go to KK-360 Performance (unsafe)" → **Allow**. Ini normal (scope:
-Spreadsheet, Gmail, Script, Drive).
-
-| Urutan | Fungsi | Hasil |
+| # | Fungsi (di file `00_Config`) | Hasil |
 |---|---|---|
-| D1 | `setup` | Membuat Spreadsheet **"KK-360 Performance — Database"**, menyimpan `SPREADSHEET_ID` + `OTP_PEPPER` ke Script Properties, membuat **17 sheet** + header, seed tabel referensi level jabatan, 8 kategori INVICTUS, 24+2+6 pertanyaan, contoh pertanyaan wawancara. Lihat log: `setup() selesai. SPREADSHEET_ID=...` |
-| D2 | `setAdminNias` | **Perlu argumen.** Klik ▸ di sebelah tombol Run tidak menyediakan input argumen di editor baru — sebagai gantinya edit sementara baris pemanggilan, ATAU lihat cara di bawah. |
-| D3 | `installTriggers` | Memasang trigger harian 07:00 Asia/Pontianak (pengingat H-3/H-1 + ringkasan progres Senin). |
+| B1 | **`setup`** | buat Spreadsheet **"KK-360 Performance — Database"**, simpan `SPREADSHEET_ID` + `OTP_PEPPER` ke Script Properties, buat **17 sheet** + header, seed tabel referensi level jabatan + 8 kategori INVICTUS + 24+2+6 pertanyaan + contoh pertanyaan wawancara. Lihat **Execution log**: `setup() selesai. SPREADSHEET_ID=... URL=...` |
+| B2 | isi **`ADMIN_NIAS`** | ⚙️ **Project Settings → Script Properties → Add**: Property `ADMIN_NIAS`, Value `010020000002,010921100266` (NIA admin ITD/HCMD, dipisah koma, tanpa spasi). *Atau* Run `setAdminNias('010020000002,010921100266')` setelah menaruh pemanggilan sementara. |
+| B3 | **`installTriggers`** | pasang trigger harian 07:00 Asia/Pontianak (pengingat H-3/H-1 + ringkasan progres tiap Senin). |
 
-### D2 — cara mengisi NIA Admin
-Editor Apps Script baru tidak punya kolom argumen. Dua opsi:
-
-**Opsi A — via Script Properties (paling mudah):**
-1. ⚙️ **Project Settings** → **Script Properties** → **Add script property**
-2. Property: `ADMIN_NIAS` — Value: `010020000002,010921100266` (NIA admin ITD/HCMD, dipisah koma, tanpa spasi)
-3. Save.
-
-**Opsi B — fungsi sekali pakai:** tambahkan sementara di `Code.gs`:
-```js
-function _isiAdmin() { return setAdminNias('010020000002,010921100266'); }
-```
-`clasp push`, Run `_isiAdmin`, lalu hapus lagi.
-
-### D4 — verifikasi
-Buka Spreadsheet database (URL ada di log D1 atau Drive akun sistem). Pastikan
-ada 17 tab: `aktivis, riwayat_mutasi_aktivis, referensi_level_jabatan,
-hierarki_terdeteksi, otp_log, periode_penilaian, kategori_core_value,
-pertanyaan_360, opsi_jawaban_teknis, penugasan_penilaian, jawaban_360,
-pertanyaan_wawancara, sesi_wawancara, jawaban_wawancara, rencana_tindak_lanjut,
-audit_log` (+ tab `referensi_level_jabatan` sudah terisi 3 baris, `pertanyaan_360`
-terisi 32 baris).
+**Verifikasi:** buka URL Spreadsheet dari log B1 → ada 17 tab; tab `referensi_level_jabatan`
+terisi 3 baris, `pertanyaan_360` terisi 32 baris.
 
 ---
 
-## BAGIAN E — Impor roster aktivis pertama ⏱️
+## BAGIAN C — Backend: impor roster pertama ⏱️
 
-> **Kenapa lewat editor, bukan aplikasi?** Impor lewat Panel Admin butuh login
-> admin; login admin butuh NIA admin sudah ada di sheet `aktivis`. Telur-ayam.
-> Maka impor **pertama** dijalankan dari editor.
+> Impor **pertama** dijalankan dari editor karena impor lewat aplikasi butuh login
+> admin, sedangkan login admin butuh NIA admin sudah ada di sheet `aktivis`.
 
-### E1. Upload roster ke Google Sheets
+### C1. Upload roster ke Google Sheets
 1. Upload `Data_Aktivis_Agus_2026.xlsx` ke Drive akun sistem.
-2. Klik kanan → **Open with → Google Sheets** (mengubah jadi format Sheets).
-3. Dari URL Sheets, salin **ID**-nya:
-   `https://docs.google.com/spreadsheets/d/`**`ID_DI_SINI`**`/edit#gid=0`
-4. Catat juga nama tab-nya (mis. `Agustus`).
+2. Klik kanan → **Open with → Google Sheets**.
+3. Salin **ID** dari URL: `.../spreadsheets/d/`**`ID_DI_SINI`**`/edit`. Catat nama tab (mis. `Agustus`).
 
-### E2. Set Script Properties untuk bootstrap impor
+### C2. Set Script Properties
 ⚙️ **Project Settings → Script Properties → Add**:
+
 | Property | Value |
 |---|---|
-| `BOOTSTRAP_ROSTER_SHEET_ID` | ID Spreadsheet dari E1 |
-| `BOOTSTRAP_ROSTER_TAB` | `Agustus` (kosongkan bila mau tab pertama) |
+| `BOOTSTRAP_ROSTER_SHEET_ID` | ID dari C1 |
+| `BOOTSTRAP_ROSTER_TAB` | `Agustus` (kosongkan bila tab pertama) |
 
-### E3. Pratinjau (dry-run)
-Editor → pilih fungsi **`firstImportDryRun`** → **Run**. Cek log:
-- `niaDuplikat` harus **kosong** (kalau ada → koreksi berkas di HCMD dulu, BR-11).
-- `kolomWajibKosong`, `formatNiaTidakSesuai` → tinjau.
-- `jabatanBaru` → daftar jabatan yang belum terpetakan (wajar, ditangani di Bagian H).
-
-### E4. Berlakukan
-Pilih fungsi **`firstImport`** → **Run**. Log menampilkan:
-`ditambahBaru`, `diperbarui`, `dinonaktifkan`. Cek sheet `aktivis` terisi ± 789 baris.
-
-### E5. (opsional) hapus Script Property bootstrap
-Setelah sukses, `BOOTSTRAP_ROSTER_SHEET_ID` boleh dibiarkan (dipakai lagi bulan
-depan bila mau impor cepat dari editor) atau dihapus.
+### C3. Pratinjau lalu berlakukan
+1. Run **`firstImportDryRun`** → cek Execution log: `niaDuplikat` harus **kosong**
+   (bila ada → koreksi berkas di HCMD dulu, BR-11); tinjau `kolomWajibKosong`,
+   `formatNiaTidakSesuai`, `jabatanBaru`.
+2. Run **`firstImport`** → log: `ditambahBaru`, `diperbarui`, `dinonaktifkan`.
+   Cek sheet `aktivis` terisi ± 789 baris.
 
 ---
 
-## BAGIAN F — Deploy Web App ⏱️
+## BAGIAN D — Backend: deploy Web App ⏱️
 
-1. Editor Apps Script → tombol **Deploy** (kanan atas) → **New deployment**.
+1. Editor → tombol **Deploy** (kanan atas) → **New deployment**.
 2. ⚙️ (Select type) → **Web app**.
 3. Isi:
    - **Description:** `KK-360 produksi v1`
-   - **Execute as:** **Me** (akun sistem)
-   - **Who has access:** **Anyone** *(atau "Anyone, even anonymous" bila opsi itu muncul)*
+   - **Execute as:** **Me**
+   - **Who has access:** **Anyone** *(WAJIB — agar `/exec` mengizinkan `fetch` lintas-origin/CORS dari domain Cloudflare Pages)*
 4. **Deploy** → **Authorize access** bila diminta.
-5. Salin **Web app URL** (berakhiran `/exec`). Inilah tautan untuk aktivis.
-6. Uji: buka URL di jendela samaran (incognito) → harus muncul layar Login NIA.
-
-> **Setiap kali deploy versi baru** (manual): Deploy → **Manage deployments** →
-> pilih deployment produksi → ✏️ → **Version: New version** → **Deploy**. URL tetap sama.
-> Kalau pakai CI (Bagian G), langkah ini otomatis.
+5. **Salin "Web app URL"** (berakhiran `/exec`). Ini nilai untuk `SCRIPT_URL` di Bagian F.
+6. Uji cepat di browser: buka `<URL>/exec?action=ping` → harus muncul
+   `{"ok":true,"data":{"app":"KK-360 Performance","time":"..."}}`.
 
 ---
 
-## BAGIAN G — Repo GitHub + CI/CD ⏱️
+## BAGIAN E — GitHub ⏱️
 
-### G1. Buat repo kosong di GitHub
+### E1. Buat repo kosong
 <https://github.com/new> → Owner `kekiusmaximus404`, nama **`CUKK360`**,
-**JANGAN** centang "Add README / .gitignore / license". **Create repository.**
+**JANGAN** centang "Add README / .gitignore / license" → **Create repository**.
 
-### G2. Hubungkan & push
+### E2. Push
 Di folder repo lokal:
 ```bash
-git remote -v                       # cek: origin sudah ke .../CUKK360.git ?
-# kalau belum:
+git remote -v                                   # cek origin sudah ke .../CUKK360.git
+# kalau belum ada:
 git remote add origin https://github.com/kekiusmaximus404/CUKK360.git
 
 git push -u origin main
 #  → login Git Credential Manager dengan akun GitHub yang punya akses tulis
 ```
 
-### G3. Ambil kredensial clasp untuk Secret
-```bash
-# Windows PowerShell:
-Get-Content $HOME\.clasprc.json -Raw
-# Git Bash / macOS / Linux:
-cat ~/.clasprc.json
-```
-Salin **seluruh isi** (satu baris JSON, ada `token`, `client_id`, dst.).
-
-### G4. Set GitHub Secrets
-Repo GitHub → **Settings → Secrets and variables → Actions → New repository secret**:
-
-| Secret | Value |
-|---|---|
-| `CLASP_CREDENTIALS` | seluruh isi `~/.clasprc.json` dari G3 |
-| `CLASP_SCRIPT_ID` | Script ID (dari `.clasp.json` / Project Settings) |
-
-### G5. Cara kerja CI (`.github/workflows/deploy.yml`)
-| Aksi Anda | Yang terjadi di GitHub Actions |
-|---|---|
-| `git push` ke branch **`develop`** | job `test` (jest) → `clasp push --force` (staging) |
-| `git push` / merge PR ke branch **`main`** | job `test` → `clasp push --force` → `clasp deploy` (produksi) |
-| buka Pull Request ke `main` | job `test` saja (tanpa deploy) |
-
-### G6. (opsional) branch & deployment staging
-```bash
-git checkout -b develop
-git push -u origin develop
-```
-Untuk memisahkan staging & produksi, buat **dua deployment** di Apps Script
-(satu "produksi", satu "staging") dan sesuaikan `clasp deploy --deploymentId ...`
-di workflow bila perlu. Untuk skala saat ini, satu deployment produksi + `clasp push`
-staging sudah cukup.
-
-### G7. Uji CI
-Ubah hal kecil (mis. komentar di `README.md`), lalu:
-```bash
-git add -A && git commit -m "test CI" && git push
-```
-Buka tab **Actions** di GitHub → pastikan job `test` hijau; untuk push ke `main`,
-job `deploy` juga jalan dan `clasp deploy` sukses.
+> Backend (`gas/`) juga ikut ter-push ke GitHub sebagai arsip versi — tapi
+> **tidak** di-deploy ke Cloudflare (`_redirects` memblok `/gas/*`) dan **tidak**
+> otomatis masuk Apps Script. Update Apps Script tetap manual (Bagian H).
 
 ---
 
-## BAGIAN H — Operasional periode pertama 🔁
+## BAGIAN F — Cloudflare Pages ⏱️
 
-Sekarang semua lewat **aplikasi web** (URL `/exec`).
+### F1. Buat project Pages dari repo
+1. <https://dash.cloudflare.com> → **Workers & Pages** → **Create** → tab **Pages**
+   → **Connect to Git** → pilih repo `CUKK360`.
+2. Build settings:
+   - **Framework preset:** `None`
+   - **Build command:** *(kosongkan)*
+   - **Build output directory:** `/`  *(root — index.html ada di root)*
+3. **Save and Deploy**. Tunggu deploy pertama selesai → dapat domain `https://cukk360.pages.dev` (atau serupa).
 
-### H1. Aktivasi akun Admin
-1. Buka URL aplikasi → **Aktivasi akun / Lupa PIN**.
-2. Masukkan NIA admin → **Kirim OTP**.
-3. Cek email terdaftar NIA itu (kolom `email` di sheet `aktivis` — bila kosong,
-   isi manual dulu di sheet, lalu Run `refreshMasterCache_` di editor).
-4. Masukkan OTP + buat **PIN 6 digit** → masuk.
-5. Panel **"Panel Admin / HCMD"** muncul di Beranda.
+### F2. Set environment variable SCRIPT_URL
+1. Project Pages → **Settings → Environment variables** → **Add variable**
+   (untuk **Production**, dan **Preview** bila ingin branch preview jalan):
+   - **Variable name:** `SCRIPT_URL`
+   - **Value:** URL `/exec` dari Bagian D.5
+2. **Save** → menu **Deployments** → deployment terakhir → **⋯ → Retry deployment**
+   (agar `_middleware.js` menyuntik nilai baru).
 
-### H2. Tinjau jabatan belum terpetakan
-Panel Admin → bagian **Tabel Referensi Level Jabatan** → baca daftar
-"jabatan perlu dipetakan". Tambahkan pola bila ada jabatan pimpinan yang belum
-tertangkap, contoh:
-- Pola `Manager Keling Kumang Hotel` → level `Pimpinan Menengah`, ✔ trigger teknis
+### F3. Uji
+Buka `https://cukk360.pages.dev` → muncul layar **Login NIA**.
+Bila muncul toast "URL backend belum diset": env var belum kebaca — ulangi F2,
+atau sementara di Console browser jalankan
+`setUrl("https://script.google.com/.../exec"); location.reload()`.
+
+### F4. (opsional) domain kustom
+Project Pages → **Custom domains** → tambah mis. `kk360.cu-kelingkumang.id`
+(atur CNAME sesuai instruksi Cloudflare).
+
+---
+
+## BAGIAN G — Operasional periode pertama 🔁 (di aplikasi web)
+
+### G1. Aktivasi akun Admin
+1. Buka domain Pages → **Aktivasi akun / Lupa PIN** → masukkan NIA admin → **Kirim OTP**.
+2. Cek email terdaftar NIA itu (kolom `email` di sheet `aktivis`; bila kosong → isi
+   manual di sheet, lalu Run `refreshMasterCache_` di editor).
+3. Masukkan OTP + buat **PIN 6 digit** → masuk. Panel **Admin / HCMD** muncul di Beranda.
+
+### G2. Tinjau jabatan belum terpetakan
+Panel Admin → bagian **Tabel Referensi Level Jabatan** → baca daftar "perlu dipetakan".
+Tambah pola bila ada jabatan pimpinan yang belum tertangkap, mis.:
 - Pola `Deputi` → level `Pimpinan Puncak`, ✔ trigger teknis
+- Pola `Manager Keling Kumang Hotel` → `Pimpinan Menengah`, ✔ trigger teknis
 
-Sisanya yang memang staf boleh dibiarkan (default `Staf Pelaksana`).
-
-### H3. (opsional) impor ulang roster via UI
-Setelah admin bisa login, impor bulan berikutnya cukup:
-Panel Admin → **Impor Roster** → tempel ID Spreadsheet + nama tab →
-**Pratinjau (dry-run)** → bila bersih → **Impor & Berlakukan**.
-
-### H4. Buat & buka periode Penilaian 360°
+### G3. Buat & buka periode Penilaian 360°
 Panel Admin → **Periode Penilaian**:
-1. Nama: `Penilaian 360 Tahun 2026`, jenis `360°`, isi tanggal mulai & **tenggat**.
-2. **Buat Periode**.
-3. Klik tombol **`aktif`** pada baris periode → konfirmasi.
-   → sistem otomatis menjalankan **deteksi hierarki** + **generate penugasan**
-   (self, peer ≥2, atasan↔bawahan). Toast menampilkan jumlah baris dibuat.
+1. Nama `Penilaian 360 Tahun 2026`, jenis `360°`, isi tanggal mulai & **tenggat** → **Buat Periode**.
+2. Klik tombol **`aktif`** pada baris periode → konfirmasi.
+   → otomatis menjalankan **deteksi hierarki** + **generate penugasan** (self, peer ≥2, atasan↔bawahan).
 
-### H5. Buat & buka periode Wawancara (opsional, terpisah)
-Sama seperti H4, jenis `Wawancara`. Aktivasi → sistem membentuk **Sesi Wawancara**
-per pasangan atasan–bawahan (mengikuti hierarki 360° — BR-13).
+### G4. (opsional) periode Wawancara
+Sama, jenis `Wawancara`. Aktivasi → sistem membentuk **Sesi Wawancara** per pasangan
+atasan–bawahan mengikuti hierarki 360° (BR-13).
 
-### H6. Uji sebagai aktivis biasa
-Login dengan NIA non-admin (aktivasi PIN dulu) → cek:
-- **Penilaian 360°**: daftar tugas hanya berisi aktivis **unit yang sama**;
-  buka satu tugas → isi 24 butir INVICTUS (+ Teknis bila menilai pimpinan/atasan)
-  → **Kirim**.
-- **Pertanyaan Wawancara**: sesi sebagai atasan / bawahan muncul.
-- **Laporan**: lihat skor diri sendiri (radar 8 dimensi).
+### G5. Uji sebagai aktivis biasa
+Login NIA non-admin (aktivasi PIN dulu) → **Penilaian 360°**: daftar tugas hanya
+aktivis **unit yang sama**; buka tugas → isi 24 butir INVICTUS (+ Teknis bila menilai
+pimpinan/atasan) → **Kirim**. Cek menu **Laporan** (radar skor diri sendiri).
 
-### H7. Pantau progres
-- **Beranda** → kartu "Progres Periode Berjalan" (per unit/area).
-- Trigger harian mengirim pengingat H-3 & H-1 ke yang belum selesai, dan
-  ringkasan progres ke Admin tiap Senin.
-- Admin bisa **Kirim Pengingat Sekarang** dari Panel Admin untuk uji.
+### G6. Pantau & tutup
+- **Beranda** → kartu "Progres Periode Berjalan".
+- Trigger harian kirim pengingat H-3 & H-1; Panel Admin → **Kirim Pengingat Sekarang** untuk uji.
+- Setelah tenggat: set periode ke **`tutup`** (data terkunci; bisa dibuka lagi ke `aktif` bila perlu koreksi).
 
-### H8. Menutup periode
-Setelah tenggat: Panel Admin → set periode ke **`tutup`**. Data pengisian terkunci
-(bisa dibuka lagi dengan set balik ke `aktif` bila perlu koreksi).
-
-### H9. Laporan & ekspor
-Menu **Laporan**:
-- **Individu**: radar INVICTUS, Self vs Peer vs Atasan vs Bawahan, skor Teknis,
-  ringkasan wawancara. Tombol **Unduh PDF**.
-- **Agregat**: peringkat per BO / Area / Unit. Tombol **Ekspor Excel**
-  (mengunduh seluruh database sebagai `.xlsx`).
-- **Kualitas Data**: gagal kalibrasi, straight-lining, NIA duplikat, jabatan
-  belum dipetakan (untuk IAD/HCMD).
+### G7. Laporan & ekspor
+Menu **Laporan**: **Individu** (radar + Self/Peer/Atasan/Bawahan + PDF),
+**Agregat** (peringkat per BO/Area/Unit + Ekspor Excel), **Kualitas Data**
+(gagal kalibrasi, straight-lining, NIA duplikat, jabatan belum dipetakan).
 
 ---
 
-## BAGIAN I — Update rutin ke depan 🔁
+## BAGIAN H — Update rutin ke depan 🔁
 
-### I1. Ubah kode aplikasi
+### H1. Ubah tampilan / frontend (`index.html`, `css/`, `js/`)
 ```bash
-git checkout -b fitur/xyz          # kerja di branch
-# ...edit src/...
-npm test                           # pastikan lulus
-git add -A && git commit -m "..."
-git push -u origin fitur/xyz
+git add -A && git commit -m "..." && git push
 ```
-Buka PR ke `main` → CI jalan `test`. Merge → CI otomatis `clasp push` + `clasp deploy`.
-**Tanpa CI:** `clasp push` lalu Deploy → Manage deployments → New version.
+→ Cloudflare Pages **auto-deploy** dalam ~1 menit. Selesai.
 
-### I2. Ubah bank pertanyaan / tabel referensi di kode
-Seed bersifat idemponten (hanya menulis bila sheet kosong). Bila mengubah isi
-`QuestionBank.gs` / `Interview.gs` / `DEFAULT_LEVEL_REF`:
-1. `clasp push`.
-2. Editor → Run **`reseedAll`** — untuk pertanyaan yang sudah ada perlu dihapus
-   dulu barisnya di sheet, atau kelola lewat sheet langsung (Admin boleh edit sheet).
+### H2. Ubah logika backend (`gas/*.gs`)
+1. **Tempel** isi file yang berubah ke file yang sama di editor Apps Script
+   *(atau `clasp push` bila pakai clasp)*.
+2. Editor → **Deploy → Manage deployments** → pilih deployment produksi → ✏️ (Edit)
+   → **Version: New version** → **Deploy**. **URL `/exec` tetap sama**.
+3. `git commit` + `git push` juga (arsip versi di GitHub).
 
-### I3. Impor roster bulanan
-Upload xlsx baru → Sheets → Panel Admin ▸ Impor Roster ▸ dry-run ▸ Berlakukan.
-Perubahan jabatan/BO/area tercatat otomatis di `riwayat_mutasi_aktivis`.
-NIA yang hilang dari roster baru → `status_aktif = FALSE`.
-Setelah impor, bila periode 360 sedang aktif dan struktur berubah signifikan,
-jalankan ulang generate: set periode ke `draft` lalu `aktif` lagi (penugasan
-yang sudah `selesai` dipertahankan).
+### H3. Ubah bank pertanyaan / tabel referensi di kode
+Setelah H2, Run **`reseedAll`** di editor. (Untuk pertanyaan yang sudah ada, hapus
+dulu barisnya di sheet, atau kelola langsung lewat sheet — Admin boleh edit sheet.)
 
-### I4. Rotasi kredensial
-- OTP pepper (`OTP_PEPPER`) **jangan diubah** setelah ada PIN aktif (semua PIN jadi invalid).
-- Bila `~/.clasprc.json` di-regenerate (`clasp login` ulang), perbarui Secret `CLASP_CREDENTIALS`.
+### H4. Impor roster bulanan
+Upload xlsx baru → Google Sheets → **Panel Admin → Impor Roster** → tempel ID + tab
+→ **Pratinjau (dry-run)** → **Impor & Berlakukan**. Perubahan jabatan/BO/area tercatat
+di `riwayat_mutasi_aktivis`; NIA yang hilang → `status_aktif=FALSE`. Bila periode 360
+sedang aktif & struktur berubah besar: set periode ke `draft` lalu `aktif` lagi
+(penugasan yang sudah `selesai` dipertahankan).
+
+### H5. Jangan diubah
+`OTP_PEPPER` (mengubahnya membuat semua PIN & OTP lama invalid).
 
 ---
 
-## BAGIAN J — Troubleshooting
+## BAGIAN I — Troubleshooting
 
 | Gejala | Sebab & solusi |
 |---|---|
-| `clasp push` → "User has not enabled the Apps Script API" | Buka <https://script.google.com/home/usersettings>, ON-kan API. Tunggu 1–2 menit. |
-| `clasp push` → "Project settings not found" / scriptId salah | Cek `.clasp.json` → `scriptId` benar & `rootDir` = `src`. |
-| Run `setup` → "SPREADSHEET_ID belum di-set" | Wajar sebelum `setup()` sukses. Jalankan `setup` sekali; kalau error di tengah, jalankan lagi (idemponten). |
-| Login aplikasi → "NIA tidak ditemukan" untuk NIA yang ada di xlsx | Roster belum diimpor / cache basi. Jalankan `firstImport` (atau `refreshMasterCache_`) di editor. |
-| OTP tidak masuk | Kolom `email` di sheet `aktivis` kosong/salah → isi manual, Run `refreshMasterCache_`. Cek kuota `MailApp` (Editor → Executions). Cek folder spam. |
-| "Sesi formulir kedaluwarsa" saat submit 360 | Formulir dibiarkan > 3 jam. Buka ulang tugas dari daftar. |
-| Seksi Teknis tidak muncul padahal menilai pimpinan | Pola jabatan pimpinan itu belum ada di `referensi_level_jabatan` atau `is_trigger_teknis` = FALSE. Tambah/ubah pola di Panel Admin. |
-| Web App menampilkan halaman kosong/putih | Deploy versi lama, atau `include('Styles')` gagal. Deploy **New version**. Cek Editor → Executions untuk error `doGet`. |
-| GitHub push → "Repository not found" | Repo `CUKK360` belum dibuat di GitHub, atau akun yang login tidak punya akses. Buat repo kosong dulu (G1). |
-| CI job `deploy` gagal "Login failed" | Secret `CLASP_CREDENTIALS` tidak valid / kedaluwarsa. `clasp login` ulang lokal, salin `~/.clasprc.json` baru ke Secret. |
-| Skor dimensi terasa rendah semua | Cek Laporan Kualitas Data — banyak straight-lining / kalibrasi gagal? Butir kalibrasi TIDAK ikut skor (BR-07), jadi bukan itu sebabnya. |
-| Apps Script "Exceeded maximum execution time" saat laporan agregat | Data `jawaban_360` sangat besar. Untuk skala besar, jadwalkan agregasi via trigger & simpan hasil ke sheet ringkasan (peningkatan mendatang). |
+| Buka `/exec?action=ping` → halaman login Google / "butuh izin" | Web App belum di-deploy "Anyone", atau versi lama. Deploy ulang (Bagian D), pastikan *Who has access = Anyone*. |
+| Aplikasi: toast "URL backend (SCRIPT_URL) belum diset" | Env var `SCRIPT_URL` di Cloudflare belum ada / deploy belum di-retry (F2). Sementara: Console → `setUrl("<url>/exec"); location.reload()`. |
+| Aplikasi: "Gagal menghubungi backend" / error CORS di Console | Web App bukan "Anyone"; atau URL salah (harus `/exec`, bukan `/dev`). Fallback JSONP hanya untuk GET — POST butuh CORS terbuka. |
+| Login → "NIA tidak ditemukan" untuk NIA yang ada di xlsx | Roster belum diimpor / cache basi. Run `firstImport` (atau `refreshMasterCache_`) di editor. |
+| OTP tidak masuk | Kolom `email` di sheet `aktivis` kosong/salah → isi manual, Run `refreshMasterCache_`. Cek kuota `MailApp` (editor → Executions) & folder spam. |
+| "Sesi formulir kedaluwarsa" saat submit 360 | Formulir dibiarkan > 3 jam. Buka ulang tugas. |
+| Seksi Teknis tak muncul padahal menilai pimpinan | Pola jabatan itu belum ada di `referensi_level_jabatan` atau `is_trigger_teknis=FALSE`. Tambah/ubah di Panel Admin. |
+| GitHub push → "Repository not found" | Repo `CUKK360` belum dibuat / akun tak punya akses. Buat repo kosong (E1). |
+| Cloudflare Pages: file `.gs` bisa diakses publik | Pastikan `_redirects` ada di root (sudah disertakan). Bukan isu rahasia — semua kredensial di Script Properties, bukan di kode. |
+| Cloudflare deploy sukses tapi halaman kosong | `Build output directory` salah (harus `/`), atau `js/app.js` error. Buka Console browser. |
+| Editor: "Exceeded maximum execution time" saat laporan agregat | Data `jawaban_360` sangat besar. Untuk skala besar, jadwalkan agregasi via trigger ke sheet ringkasan (peningkatan mendatang). |
 
 ---
 
-## Lampiran — Daftar fungsi editor yang dijalankan manual
+## Lampiran — Fungsi editor yang dijalankan manual (file `00_Config`)
 
 | Fungsi | Kapan | Bagian |
 |---|---|---|
-| `setup` | sekali saat instalasi | D1 |
-| `setAdminNias('nia1,nia2')` *(atau Script Property `ADMIN_NIAS`)* | sekali / saat ganti admin | D2 |
-| `installTriggers` | sekali (pasang trigger harian) | D3 |
-| `removeTriggers` | bila ingin menghentikan pengingat otomatis | — |
-| `firstImportDryRun` | sebelum impor roster pertama | E3 |
-| `firstImport` | impor roster pertama | E4 |
-| `reseedAll` | setelah mengubah bank pertanyaan di kode | I2 |
-| `refreshMasterCache_` | setelah mengedit sheet `aktivis`/`referensi_level_jabatan` manual | J |
+| `setup` | sekali saat instalasi | B1 |
+| `setAdminNias('nia1,nia2')` *(atau Script Property `ADMIN_NIAS`)* | sekali / ganti admin | B2 |
+| `installTriggers` / `removeTriggers` | pasang / hentikan pengingat harian | B3 |
+| `firstImportDryRun` → `firstImport` | impor roster pertama | C3 |
+| `reseedAll` | setelah ubah bank pertanyaan di kode | H3 |
+| `refreshMasterCache_` (file `03_MasterData`) | setelah edit sheet `aktivis`/`referensi_level_jabatan` manual | I |
 
----
+## Lampiran — Environment variable Cloudflare Pages
 
-## Lampiran — Daftar Script Properties
+| Nama | Value | Scope |
+|---|---|---|
+| `SCRIPT_URL` | URL Web App Apps Script (`.../exec`) | Production (+ Preview bila perlu) |
 
-| Key | Wajib | Diisi oleh | Keterangan |
-|---|---|---|---|
-| `SPREADSHEET_ID` | ✔ | `setup()` | ID Spreadsheet database |
-| `OTP_PEPPER` | ✔ | `setup()` | garam hash OTP & PIN — **jangan diubah** |
-| `ADMIN_NIAS` | ✔ | manual / `setAdminNias` | NIA admin, dipisah koma |
-| `PEER_MIN` | — | manual | minimal rekan selevel dinilai (default 2) |
-| `SELF_APPRAISAL_AKTIF` | — | manual | `TRUE`/`FALSE` — form self-appraisal wawancara |
-| `BOOTSTRAP_ROSTER_SHEET_ID` | — | manual | ID Spreadsheet roster untuk `firstImport` |
-| `BOOTSTRAP_ROSTER_TAB` | — | manual | nama tab roster (default: tab pertama) |
+## Lampiran — Script Properties (Apps Script)
+
+| Key | Wajib | Diisi oleh |
+|---|---|---|
+| `SPREADSHEET_ID` | ✔ | `setup()` |
+| `OTP_PEPPER` | ✔ | `setup()` — jangan diubah |
+| `ADMIN_NIAS` | ✔ | manual / `setAdminNias` |
+| `PEER_MIN` | — | manual (default 2) |
+| `SELF_APPRAISAL_AKTIF` | — | manual (`TRUE`/`FALSE`) |
+| `BOOTSTRAP_ROSTER_SHEET_ID` / `BOOTSTRAP_ROSTER_TAB` | — | manual (untuk `firstImport`) |

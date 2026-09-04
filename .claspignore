@@ -1,7 +1,7 @@
-# Path dicocokkan relatif terhadap rootDir (src/). Hanya manifest + .gs + .html
-# yang diunggah ke Apps Script.
+# Path relatif terhadap rootDir (gas/). Hanya manifest + .gs yang diunggah.
+# clasp bersifat OPSIONAL — backend juga bisa di-update dengan menempel isi
+# tiap file gas/*.gs ke editor Apps Script (seperti project laporan-hn).
 **/**
 
 !appsscript.json
 !**/*.gs
-!**/*.html
