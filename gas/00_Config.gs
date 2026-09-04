@@ -100,6 +100,17 @@ function firstImportDryRun() {
   return res;
 }
 
+/**
+ * Refresh cache Master Data (aktivis + referensi level jabatan) dari sheet.
+ * Alias tanpa underscore agar muncul di dropdown Run editor.
+ * Jalankan setelah mengedit sheet `aktivis` / `referensi_level_jabatan` manual.
+ */
+function refreshCache() {
+  refreshMasterCache_();
+  Logger.log('Cache Master Data di-refresh.');
+  return ok_('cache di-refresh');
+}
+
 /** Seed ulang seluruh data referensi (idemponten). Jalankan setelah ubah bank pertanyaan di kode. */
 function reseedAll() {
   seedReferensiLevelJabatan_();
