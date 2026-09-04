@@ -25,6 +25,16 @@ var Auth = {
         var norm = f.value.replace(/\s+/g, '').toUpperCase();
         if (norm !== f.value) { f.value = norm; try { f.setSelectionRange(pos, pos); } catch (e) {} }
       });
+      // Saat selesai mengetik: pad '0' NIA numerik < 12 digit (Sheets sering
+      // membuang 0 di depan). NIA alfanumerik tidak tersentuh.
+      f.addEventListener('blur', function () {
+        var s = f.value.replace(/\s+/g, '').toUpperCase();
+        if (/^\d+$/.test(s) && s.length > 0 && s.length < 12) {
+          f.value = ('000000000000' + s).slice(-12);
+        } else {
+          f.value = s;
+        }
+      });
     });
   },
 

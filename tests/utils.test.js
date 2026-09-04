@@ -11,8 +11,13 @@ describe('normalizeNia_ / isValidNiaFormat_', () => {
     expect(ctx.normalizeNia_('01sk11700901')).toBe('01SK11700901');
     expect(ctx.isValidNiaFormat_('01SK11700901')).toBe(true);
   });
-  test('NIA terlalu pendek / mengandung simbol ditolak', () => {
-    expect(ctx.isValidNiaFormat_('12345')).toBe(false);
+  test('NIA numerik yang 0-di-depannya terpotong Google Sheets → di-pad ke 12', () => {
+    expect(ctx.normalizeNia_('10921100264')).toBe('010921100264');
+    expect(ctx.normalizeNia_(10921100264)).toBe('010921100264');
+    expect(ctx.normalizeNia_('12345')).toBe('000000012345');
+    expect(ctx.isValidNiaFormat_('10921100264')).toBe(true);
+  });
+  test('NIA mengandung simbol / kosong ditolak', () => {
     expect(ctx.isValidNiaFormat_('01-SK-117')).toBe(false);
     expect(ctx.isValidNiaFormat_('')).toBe(false);
   });

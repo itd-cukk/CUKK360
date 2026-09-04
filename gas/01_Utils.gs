@@ -253,14 +253,26 @@ function hashOtp_(nia, kode) {
  * NIA
  * ========================================================================== */
 
+/** Panjang baku NIA (seluruh NIA riil = 12 karakter). */
+var NIA_LEN = 12;
+
 /**
- * Normalisasi NIA: trim, buang spasi internal, uppercase.
- * NIA SELALU diperlakukan sebagai teks (243 dari 784 NIA riil alfanumerik).
+ * Normalisasi NIA: trim, buang spasi internal, uppercase, dan LEFT-PAD '0'
+ * untuk NIA murni-angka yang lebih pendek dari NIA_LEN.
+ *
+ * Alasan pad: Google Sheets sering mengubah NIA numerik ("010921100264") jadi
+ * angka dan membuang '0' di depan ("10921100264"). NIA riil selalu 12 karakter,
+ * jadi angka < 12 digit dipulihkan. NIA alfanumerik (mengandung huruf, mis.
+ * "01SK11700901") tidak tersentuh — hanya di-uppercase.
  * @param {*} nia
  * @return {string}
  */
 function normalizeNia_(nia) {
-  return String(nia == null ? '' : nia).replace(/\s+/g, '').toUpperCase();
+  var s = String(nia == null ? '' : nia).replace(/\s+/g, '').toUpperCase();
+  if (/^\d+$/.test(s) && s.length < NIA_LEN) {
+    s = ('000000000000' + s).slice(-NIA_LEN);
+  }
+  return s;
 }
 
 /**
