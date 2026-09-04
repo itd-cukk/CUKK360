@@ -14,6 +14,18 @@ var Auth = {
     });
     $('btn-logout').addEventListener('click', function () { Auth.logout(); });
     $('in-pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') Auth.login($('btn-login')); });
+
+    // Normalisasi NIA seperti backend normalizeNia_(): huruf besar, tanpa spasi.
+    // NIA diperlakukan sebagai TEKS — angka 0 di depan & alfanumerik (01SK...) dipertahankan.
+    ['in-nia', 'act-nia'].forEach(function (id) {
+      var f = $(id);
+      if (!f) return;
+      f.addEventListener('input', function () {
+        var pos = f.selectionStart;
+        var norm = f.value.replace(/\s+/g, '').toUpperCase();
+        if (norm !== f.value) { f.value = norm; try { f.setSelectionRange(pos, pos); } catch (e) {} }
+      });
+    });
   },
 
   _show: function (id) {

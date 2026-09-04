@@ -22,7 +22,7 @@
 
     <div id="auth-login">
       <label>Nomor Induk Aktivis (NIA)</label>
-      <input type="text" id="in-nia" autocomplete="username" placeholder="mis. 010921100266 atau 01SK11700901">
+      <input type="text" id="in-nia" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="mis. 010921100266 atau 01SK11700901">
       <p class="muted" id="nia-status" style="font-size:12px;margin:4px 0 0"></p>
       <label>PIN (6 digit)</label>
       <input type="password" id="in-pin" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="••••••">
@@ -33,7 +33,7 @@
     <div id="auth-activate" class="hidden">
       <p class="sub">Kami akan mengirim kode OTP ke email terdaftar milik pemilik NIA.</p>
       <label>NIA</label>
-      <input type="text" id="act-nia" placeholder="NIA">
+      <input type="text" id="act-nia" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="NIA">
       <button class="mt16" style="width:100%" id="btn-req-activation">Kirim OTP</button>
       <p class="center mt8"><a href="#" class="lnk-back-login">&larr; Kembali</a></p>
     </div>
