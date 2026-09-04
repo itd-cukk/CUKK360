@@ -54,6 +54,10 @@ Dokumen sumber kebenaran: `docs/FRD_Aplikasi_Penilaian_Kinerja_360_Keling_Kumang
 
 ## 2. Setup dari nol (untuk HCMD / ITD)
 
+> **Panduan langkah-demi-langkah lengkap** (GAS + clasp + GitHub + operasional
+> periode pertama + troubleshooting): **[`docs/PANDUAN_SETUP.md`](docs/PANDUAN_SETUP.md)**.
+> Ringkasan di bawah ini.
+
 ### 2.1 Prasyarat lokal
 
 ```bash

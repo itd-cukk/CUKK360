@@ -73,6 +73,36 @@ function ensureAllSheets_() {
 }
 
 /**
+ * Impor roster PERTAMA KALI — dijalankan dari editor Apps Script (bukan UI),
+ * karena impor lewat Panel Admin butuh login admin, sedangkan login admin butuh
+ * NIA admin sudah ada di sheet `aktivis` (masalah ayam-telur saat instalasi).
+ *
+ * Prasyarat: isi Script Property `BOOTSTRAP_ROSTER_SHEET_ID` dengan ID Google
+ * Spreadsheet hasil upload berkas roster xlsx. Opsional `BOOTSTRAP_ROSTER_TAB`.
+ *
+ * Jalankan `firstImport()` (Run) di editor. Setelah admin bisa login, impor
+ * berikutnya cukup lewat Panel Admin ▸ Impor Roster.
+ */
+function firstImport() {
+  var id = scriptProps_().getProperty('BOOTSTRAP_ROSTER_SHEET_ID');
+  if (!id) throw new Error('Set dulu Script Property BOOTSTRAP_ROSTER_SHEET_ID = ID Spreadsheet sumber roster.');
+  var tab = scriptProps_().getProperty('BOOTSTRAP_ROSTER_TAB') || null;
+  var res = importRosterFromSheet_(id, tab, { apply: true });
+  Logger.log(JSON.stringify(res, null, 2));
+  return res;
+}
+
+/** Pratinjau impor roster tanpa menulis (dry-run) — untuk cek validasi dari editor. */
+function firstImportDryRun() {
+  var id = scriptProps_().getProperty('BOOTSTRAP_ROSTER_SHEET_ID');
+  if (!id) throw new Error('Set dulu Script Property BOOTSTRAP_ROSTER_SHEET_ID.');
+  var tab = scriptProps_().getProperty('BOOTSTRAP_ROSTER_TAB') || null;
+  var res = importRosterFromSheet_(id, tab, { apply: false });
+  Logger.log(JSON.stringify(res, null, 2));
+  return res;
+}
+
+/**
  * Seed ulang seluruh data referensi (idemponten — aman diulang).
  * Berguna setelah mengubah bank pertanyaan di kode.
  */
