@@ -303,6 +303,37 @@ canvas { max-width: 100%; }
 /* scroll wrapper untuk tabel lebar */
 .card > div[style*="overflow-x"] { -webkit-overflow-scrolling: touch; }
 
+/* ============================ WIZARD ============================ */
+.context-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--navy-soft); border-radius: var(--radius-sm);
+  padding: 13px 14px; margin: 16px 0 6px;
+}
+.context-badge {
+  width: 40px; height: 40px; border-radius: 11px; flex: none;
+  background: var(--navy); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head); font-weight: 700; font-size: 17px;
+}
+.context-name { font-weight: 600; font-size: 14px; color: var(--text); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.context-sub { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+
+.wz-steplabel { font-size: 12px; color: var(--muted); margin: 6px 0 4px; }
+.wz-stephead { padding: 6px 0 4px; }
+.wz-stepnum {
+  display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--navy); background: var(--navy-soft);
+  padding: 3px 9px; border-radius: 999px;
+}
+.wz-warn { color: var(--red); font-size: 12.5px; font-weight: 600; margin-top: 10px; min-height: 16px; }
+
+.q-card { padding: 18px 0; border-top: 1px solid var(--border); }
+.q-card:first-of-type { border-top: 0; }
+.q-card .qt { font-weight: 500; font-size: 14.5px; line-height: 1.55; }
+.q-card.unanswered { background: var(--red-soft); border-radius: 12px; padding: 14px 12px; border-top-color: transparent; }
+.chip .chip-num { font-family: var(--font-head); font-size: 16px; display: block; }
+.chip.narrow .chip-num { display: inline; }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }

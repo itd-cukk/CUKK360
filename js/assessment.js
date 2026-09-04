@@ -34,63 +34,112 @@ var Wizard = {
     $('btn-wz-back').addEventListener('click', function () {
       if (confirm('Keluar dari formulir? Jawaban tersimpan otomatis sebagai draft.')) nav('assessment');
     });
+    $('wz-prev').addEventListener('click', function () { Wizard.go(-1); });
+    $('wz-next').addEventListener('click', function () { Wizard.go(1); });
     $('wz-submit').addEventListener('click', function (e) { Wizard.submit(e.currentTarget); });
-    $('wz-catatan').addEventListener('input', function () { Wizard.autosave(); });
   },
 
   open: function (penugasanId) {
     nav('wizard');
-    $('wz-context').innerHTML = '<p class="muted">Memuat…</p>';
-    ['wz-step-kal-core', 'wz-step-core', 'wz-step-kal-teknis', 'wz-step-teknis'].forEach(function (i) { $(i).innerHTML = ''; });
-    $('wz-unanswered').textContent = ''; $('wz-catatan').value = '';
+    $('wz-context').innerHTML = '<span class="muted">Memuat…</span>';
+    $('wz-body').innerHTML = ''; $('wz-unanswered').textContent = '';
     apiGet('a360.open', { sessionToken: SESSION.token, penugasanId: penugasanId }).then(function (d) {
-      Wizard.st = { penugasanId: penugasanId, formToken: d.formToken, answers: {}, form: d.form, konteks: d.konteks };
-      if (d.draft && d.draft.answers) { Wizard.st.answers = d.draft.answers; $('wz-catatan').value = d.draft.catatan || ''; }
+      Wizard.st = {
+        penugasanId: penugasanId, formToken: d.formToken, form: d.form, konteks: d.konteks,
+        answers: (d.draft && d.draft.answers) || {}, catatan: (d.draft && d.draft.catatan) || '',
+        steps: [], cur: 0
+      };
+      Wizard._buildSteps();
       var k = d.konteks.dinilai;
       $('wz-context').innerHTML =
-        '<div class="row"><span class="pill ' + d.konteks.jenis_relasi + '">' + d.konteks.jenis_relasi.toUpperCase() + '</span>' +
-        '<strong>' + esc(k.nama) + '</strong></div>' +
-        '<div class="muted" style="font-size:13px;margin-top:4px">' + esc(k.jabatan_text) + ' · ' + esc(k.bo) + ' / ' + esc(k.area) +
-        ' · Level: ' + esc(k.level) + '</div>' +
-        (d.konteks.includeTeknis ? '<div class="mt8" style="font-size:12px;color:var(--kk-biru)">Termasuk kuesioner Kompetensi Teknis Kepemimpinan</div>' : '');
-      Wizard.render();
-    }).catch(function (e) { $('wz-context').innerHTML = '<p class="muted">' + esc(e.message) + '</p>'; });
+        '<div class="context-badge">' + esc((k.nama || '?').charAt(0)) + '</div>' +
+        '<div><div class="context-name">' + esc(k.nama) +
+        ' <span class="pill ' + d.konteks.jenis_relasi + '">' + d.konteks.jenis_relasi.toUpperCase() + '</span></div>' +
+        '<div class="context-sub">' + esc(k.jabatan_text) + ' — ' + esc(k.bo) + ' / ' + esc(k.area) + '</div></div>';
+      Wizard.renderStep();
+    }).catch(function (e) { $('wz-context').innerHTML = '<span class="muted">' + esc(e.message) + '</span>'; });
   },
 
-  render: function () {
-    var f = Wizard.st.form;
-    if (f.kalibrasiCore) $('wz-step-kal-core').appendChild(Wizard._qCard(f.kalibrasiCore, 'Kalibrasi — Core Values'));
-    var cont = $('wz-step-core');
-    cont.appendChild(el('h3', null, 'Kuesioner Core Values INVICTUS'));
-    f.core.forEach(function (q) { cont.appendChild(Wizard._qCard(q)); });
-    if (f.kalibrasiTeknis) $('wz-step-kal-teknis').appendChild(Wizard._qCard(f.kalibrasiTeknis, 'Kalibrasi — Teknis'));
-    if (f.teknis && f.teknis.length) {
-      var tc = $('wz-step-teknis');
-      tc.appendChild(el('h3', null, 'Kompetensi Teknis Kepemimpinan'));
-      f.teknis.forEach(function (q) { tc.appendChild(Wizard._qCard(q)); });
-    }
-    Wizard.updateProgress();
+  _buildSteps: function () {
+    var f = Wizard.st.form, steps = [];
+    if (f.kalibrasiCore) steps.push({ kind: 'kalibrasi', title: 'Butir Perhatian', help: 'Baca instruksi butir ini baik-baik lalu pilih sesuai perintah.', qs: [f.kalibrasiCore] });
+
+    var byKat = [];
+    f.core.forEach(function (q) {
+      var g = byKat.filter(function (x) { return x.id === q.kategori_id; })[0];
+      if (!g) { g = { id: q.kategori_id, kode: q.kategori_kode, nama: q.kategori_nama, qs: [] }; byKat.push(g); }
+      g.qs.push(q);
+    });
+    byKat.forEach(function (g, i) {
+      steps.push({
+        kind: 'dimensi', title: (g.kode || '') + ' · ' + (g.nama || 'Dimensi'),
+        help: 'Dimensi ke-' + (i + 1) + ' dari 8. Skala 1 = sangat rendah, 5 = sangat tinggi (arti lengkap ada di pilihan ujung).',
+        qs: g.qs
+      });
+    });
+
+    if (f.kalibrasiTeknis) steps.push({ kind: 'kalibrasi', title: 'Butir Perhatian (Teknis)', help: 'Baca instruksi butir ini baik-baik lalu pilih sesuai perintah.', qs: [f.kalibrasiTeknis] });
+    if (f.teknis && f.teknis.length) steps.push({ kind: 'teknis', title: 'Kompetensi Teknis Kepemimpinan', help: 'Pilih pernyataan yang paling menggambarkan pimpinan/atasan yang dinilai.', qs: f.teknis });
+
+    steps.push({ kind: 'penutup', title: 'Catatan & Kirim', help: '', qs: [] });
+    Wizard.st.steps = steps;
   },
 
-  _qCard: function (q, heading) {
-    var wrap = el('div', { class: 'q', id: 'q-' + q.id });
-    if (heading) wrap.appendChild(el('div', { class: 'qk' }, heading));
-    if (q.kategori_nama) wrap.appendChild(el('div', { class: 'qk' }, q.kategori_kode + ' · ' + q.kategori_nama));
-    wrap.appendChild(el('div', { class: 'qt' }, esc(q.teks)));
+  renderStep: function () {
+    var st = Wizard.st, step = st.steps[st.cur], body = $('wz-body');
+    body.innerHTML = ''; $('wz-unanswered').textContent = '';
+
+    body.appendChild(el('div', { class: 'wz-stephead' },
+      '<div class="wz-stepnum">Langkah ' + (st.cur + 1) + ' / ' + st.steps.length + '</div>' +
+      '<h3 style="margin:2px 0 0">' + esc(step.title) + '</h3>' +
+      (step.help ? '<div class="muted" style="font-size:12.5px;margin-top:4px">' + esc(step.help) + '</div>' : '')));
+
+    if (step.kind === 'penutup') body.appendChild(Wizard._renderPenutup());
+    else step.qs.forEach(function (q) { body.appendChild(Wizard._qCard(q)); });
+
+    var last = st.cur === st.steps.length - 1;
+    $('wz-prev').disabled = st.cur === 0;
+    $('wz-next').classList.toggle('hidden', last);
+    $('wz-submit').classList.toggle('hidden', !last);
+    Wizard._updateChrome();
+
+    var top = document.getElementById('view-wizard');
+    if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  },
+
+  _renderPenutup: function () {
+    var ids = Wizard._requiredIds();
+    var done = ids.filter(function (id) { return Wizard.st.answers[id] >= 1; }).length;
+    var wrap = el('div', { class: 'q-card' });
+    wrap.appendChild(el('p', null, '<b>' + done + ' dari ' + ids.length + '</b> pertanyaan terjawab.' +
+      (done < ids.length ? ' <span style="color:var(--red)">Lengkapi dulu sebelum mengirim.</span>' : ' Formulir siap dikirim.')));
+    wrap.appendChild(el('label', null, 'Catatan khusus untuk pemangku jabatan (opsional)'));
+    var ta = el('textarea', { placeholder: 'Masukan / observasi tambahan…' });
+    ta.value = Wizard.st.catatan || '';
+    ta.addEventListener('input', function () { Wizard.st.catatan = ta.value; Wizard.autosave(); });
+    wrap.appendChild(ta);
+    return wrap;
+  },
+
+  _qCard: function (q) {
     var narrative = q.opsi.length && q.opsi[0].deskripsi != null;
+    var wrap = el('div', { class: 'q-card', id: 'q-' + q.id });
+    wrap.appendChild(el('div', { class: 'qt' }, esc(q.teks)));
     var scale = el('div', { class: 'scale' + (narrative ? ' narrative' : '') });
     q.opsi.forEach(function (o) {
       var chip = el('div', { class: 'chip' + (narrative ? ' narrow' : '') });
-      chip.innerHTML = narrative
-        ? '<strong>' + esc(o.label) + '</strong><small>' + esc(o.deskripsi) + '</small>'
-        : esc(o.label ? o.label : o.skor) + (o.label && o.label !== String(o.skor) ? '<small>' + o.skor + '</small>' : '<small>&nbsp;</small>');
+      if (narrative) chip.innerHTML = '<strong>' + esc(o.label) + '</strong><small>' + esc(o.deskripsi) + '</small>';
+      else chip.innerHTML = '<span class="chip-num">' + o.skor + '</span>' +
+        (o.label && o.label !== String(o.skor) ? '<small>' + esc(o.label) + '</small>' : '');
       if (Wizard.st.answers[q.id] === o.skor) chip.classList.add('sel');
       chip.addEventListener('click', function () {
         Wizard.st.answers[q.id] = o.skor;
         Array.prototype.forEach.call(scale.querySelectorAll('.chip'), function (c) { c.classList.remove('sel'); });
         chip.classList.add('sel');
         wrap.classList.remove('unanswered');
-        Wizard.updateProgress(); Wizard.autosave();
+        $('wz-unanswered').textContent = '';
+        Wizard._updateChrome();
+        Wizard.autosave();
       });
       scale.appendChild(chip);
     });
@@ -99,21 +148,41 @@ var Wizard = {
   },
 
   _requiredIds: function () {
-    var f = Wizard.st.form, ids = [];
-    if (f.kalibrasiCore) ids.push(f.kalibrasiCore.id);
-    f.core.forEach(function (q) { ids.push(q.id); });
-    if (f.kalibrasiTeknis) ids.push(f.kalibrasiTeknis.id);
-    (f.teknis || []).forEach(function (q) { ids.push(q.id); });
+    var ids = [];
+    Wizard.st.steps.forEach(function (s) { if (s.kind !== 'penutup') s.qs.forEach(function (q) { ids.push(q.id); }); });
     return ids;
   },
+  _stepComplete: function (i) {
+    var step = Wizard.st.steps[i];
+    if (!step || step.kind === 'penutup') return true;
+    return step.qs.every(function (q) { return Wizard.st.answers[q.id] >= 1; });
+  },
+  _allAnswered: function () {
+    return Wizard._requiredIds().every(function (id) { return Wizard.st.answers[id] >= 1; });
+  },
 
-  updateProgress: function () {
+  go: function (dir) {
+    var st = Wizard.st;
+    if (dir > 0 && !Wizard._stepComplete(st.cur)) {
+      st.steps[st.cur].qs.forEach(function (q) {
+        if (!(st.answers[q.id] >= 1)) { var n = $('q-' + q.id); if (n) n.classList.add('unanswered'); }
+      });
+      $('wz-unanswered').textContent = 'Jawab semua pertanyaan di langkah ini dulu.';
+      return;
+    }
+    st.cur = Math.max(0, Math.min(st.steps.length - 1, st.cur + dir));
+    Wizard.renderStep();
+  },
+
+  _updateChrome: function () {
     var ids = Wizard._requiredIds();
     var done = ids.filter(function (id) { return Wizard.st.answers[id] >= 1; }).length;
-    var pct = ids.length ? Math.round(done / ids.length * 100) : 0;
-    $('wz-pbar').style.width = pct + '%';
-    $('wz-progress').textContent = done + ' dari ' + ids.length + ' terjawab';
-    $('wz-submit').disabled = done < ids.length;
+    $('wz-pbar').style.width = (ids.length ? Math.round(done / ids.length * 100) : 0) + '%';
+    var step = Wizard.st.steps[Wizard.st.cur];
+    $('wz-progress').textContent = 'Langkah ' + (Wizard.st.cur + 1) + '/' + Wizard.st.steps.length +
+      ' · ' + step.title + '  —  ' + done + '/' + ids.length + ' terjawab';
+    $('wz-next').disabled = !Wizard._stepComplete(Wizard.st.cur);
+    $('wz-submit').disabled = !Wizard._allAnswered();
   },
 
   autosave: function () {
@@ -122,29 +191,30 @@ var Wizard = {
     Wizard._saveT = setTimeout(function () {
       apiPost('a360.saveDraft', {
         sessionToken: SESSION.token, penugasanId: Wizard.st.penugasanId,
-        answers: Wizard.st.answers, catatan: $('wz-catatan').value
+        answers: Wizard.st.answers, catatan: Wizard.st.catatan || ''
       }).then(function () { $('wz-autosave').textContent = 'tersimpan otomatis'; })
         .catch(function () { $('wz-autosave').textContent = ''; });
     }, 900);
   },
 
   submit: function (btn) {
-    var ids = Wizard._requiredIds();
-    var belum = ids.filter(function (id) { return !(Wizard.st.answers[id] >= 1); });
-    if (belum.length) {
-      belum.forEach(function (id) { var n = $('q-' + id); if (n) n.classList.add('unanswered'); });
-      $('wz-unanswered').textContent = 'Masih ada ' + belum.length + ' pertanyaan belum dijawab (disorot merah).';
-      var first = $('q-' + belum[0]); if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!Wizard._allAnswered()) {
+      var firstBad = Wizard._requiredIds().filter(function (id) { return !(Wizard.st.answers[id] >= 1); })[0];
+      for (var i = 0; i < Wizard.st.steps.length; i++) {
+        if ((Wizard.st.steps[i].qs || []).some(function (q) { return q.id === firstBad; })) { Wizard.st.cur = i; break; }
+      }
+      Wizard.renderStep();
+      $('wz-unanswered').textContent = 'Masih ada pertanyaan belum dijawab (disorot merah).';
       return;
     }
     busy(btn, true);
     apiPost('a360.submit', {
       sessionToken: SESSION.token, penugasanId: Wizard.st.penugasanId, formToken: Wizard.st.formToken,
-      answers: Wizard.st.answers, catatan: $('wz-catatan').value
+      answers: Wizard.st.answers, catatan: Wizard.st.catatan || ''
     }).then(function (d) {
       busy(btn, false);
       var kq = d.kualitasData || {};
-      toast(kq.flagged ? 'Terkirim. Catatan: jawaban ditandai untuk ditinjau HCMD.' : 'Penilaian berhasil dikirim. Terima kasih!');
+      toast(kq.flagged ? 'Terkirim. Jawaban ditandai untuk ditinjau HCMD.' : 'Penilaian berhasil dikirim. Terima kasih!');
       nav('assessment');
     }).catch(function (e) { busy(btn, false); toast(e.message, true); });
   }

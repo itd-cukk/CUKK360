@@ -164,22 +164,24 @@
     <section id="view-wizard" class="view hidden">
       <div class="card">
         <div class="row">
-          <button class="secondary" id="btn-wz-back">&larr; Kembali</button>
+          <button class="secondary" id="btn-wz-back">&larr; Keluar</button>
           <h2 class="mb0" style="flex:1">Formulir Penilaian</h2>
         </div>
-        <div id="wz-context" class="card" style="background:var(--chip);margin-top:12px"></div>
-        <div class="pbar mt8"><i id="wz-pbar" style="width:0%"></i></div>
-        <p class="muted" id="wz-progress">0 dari 0 terjawab</p>
-        <div id="wz-step-kal-core"></div>
-        <div id="wz-step-core"></div>
-        <div id="wz-step-kal-teknis"></div>
-        <div id="wz-step-teknis"></div>
-        <label>Catatan khusus untuk pemangku jabatan (opsional)</label>
-        <textarea id="wz-catatan" placeholder="Masukan/observasi tambahan…"></textarea>
-        <div id="wz-unanswered" class="muted mt8"></div>
+
+        <div id="wz-context" class="context-card"></div>
+
+        <div class="pbar mt16"><i id="wz-pbar" style="width:0%"></i></div>
+        <p class="wz-steplabel" id="wz-progress">—</p>
+
+        <div id="wz-body"></div>
+
+        <div id="wz-unanswered" class="wz-warn"></div>
+
         <div class="sticky-actions">
-          <span class="muted" id="wz-autosave" style="align-self:center;font-size:12px"></span>
-          <button class="green" id="wz-submit">Kirim Penilaian</button>
+          <span class="muted" id="wz-autosave" style="flex:1;font-size:12px"></span>
+          <button class="secondary" id="wz-prev">&larr; Kembali</button>
+          <button id="wz-next">Lanjut &rarr;</button>
+          <button class="green hidden" id="wz-submit">Kirim Penilaian</button>
         </div>
       </div>
     </section>
